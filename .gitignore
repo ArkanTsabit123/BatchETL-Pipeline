@@ -1,9 +1,16 @@
+# ============================================
 # Virtual Environment
+# ============================================
 venv/
 env/
+ENV/
+.env
 .venv/
+pyenv.cfg
 
-# Python
+# ============================================
+# Python Cache & Build
+# ============================================
 __pycache__/
 *.pyc
 *.pyo
@@ -15,61 +22,328 @@ __pycache__/
 dist/
 build/
 *.whl
+*.manifest
+*.spec
+pip-wheel-metadata/
+share/python-wheels/
 
+# ============================================
 # Airflow
+# ============================================
 airflow.db
 airflow.cfg
 webserver_config.py
 logs/
 plugins/
 *.pid
+airflow-webserver.pid
+airflow-scheduler.pid
+airflow-worker.pid
+airflow-webserver.log
+airflow-scheduler.log
+airflow-worker.log
+airflow.db-journal
+airflow.db-wal
+airflow.db-shm
+airflow.cfg.bak
+standalone_admin_credentials.txt
+unittests.cfg
+airflow/*.pyc
 
+# ============================================
 # Docker
+# ============================================
 .docker/
 docker-compose.override.yml
-
-# PostgreSQL
+*.dockerignore
 postgres_data/
-*.duckdb
-*.db
-*.log
 
-# Data Files
+# ============================================
+# PostgreSQL / Database
+# ============================================
+warehouse/*.duckdb
+warehouse/*.db
+warehouse/*.sqlite
+warehouse/*.sqlite3
+warehouse/*.log
+warehouse/*.wal
+warehouse/*.tmp
+warehouse/*.journal
+!warehouse/.gitkeep
+
+# ============================================
+# Data Files - Exclude all, keep .gitkeep
+# ============================================
+data/*.csv
+data/*.xlsx
+data/*.xls
+data/*.parquet
+data/*.json
+data/*.db
+data/*.sqlite
+!data/.gitkeep
 data/raw/*.csv
-data/staging/*.csv
 !data/raw/.gitkeep
+data/staging/*.csv
 !data/staging/.gitkeep
 
-# IDE
+# ============================================
+# IDE / Editor
+# ============================================
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 .DS_Store
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.vs/
+*.code-workspace
+*.code-workspace.local
+.vscode-test/
+.idea_modules/
+*.komodoproject
 
-# OS
+# ============================================
+# OS Generated Files
+# ============================================
 Thumbs.db
 desktop.ini
-
-# Logs
-logs/
+.DS_Store
 *.log
+*.tmp
+*.temp
+.directory
+ehthumbs.db
+ehthumbs_vista.db
 
+# ============================================
 # Streamlit
+# ============================================
 .streamlit/
 .streamlit/config.toml
+.streamlit/secrets.toml
 
+# ============================================
+# Jupyter Notebook
+# ============================================
+.ipynb_checkpoints/
+*.ipynb
+*.ipynb_checkpoints/
+*.nbconvert.ipynb
+
+# ============================================
 # Testing
+# ============================================
 .pytest_cache/
 .coverage
 htmlcov/
+.tox/
+*.cover
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+test-results/
+test-reports/
+junit.xml
+coverage.xml
 
-# Environment
-.env
-.env.local
-
-# Backup
+# ============================================
+# Backup & Temp Files
+# ============================================
 *.bak
 *.tmp
+*.temp
+*.backup
+*.old
+*.orig
+*.rej
+*.patch
+*.swp
+*.swo
+*~
+
+# ============================================
+# Verification Reports
+# ============================================
+phase*_verification.json
+phase*_verification_report.txt
+
+# ============================================
+# Local Development
+# ============================================
+local.env
+.env.local
+.env.*.local
+*.local
+credentials.json
+.credentials.json
+
+# ============================================
+# Security
+# ============================================
+*.key
+*.pem
+*.crt
+*.csr
+secrets/
+*.secret
+*.secrets
+!screenshots/*.png
+!screenshots/*.jpg
+!screenshots/*.jpeg
+
+# ============================================
+# Archive Files
+# ============================================
 *.zip
 *.tar.gz
+*.tgz
+*.rar
+*.7z
+*.bz2
+*.xz
+*.gz
+
+# ============================================
+# Python Profiling
+# ============================================
+*.prof
+*.pyprof
+
+# ============================================
+# Documentation Build
+# ============================================
+docs/_build/
+docs/_static/
+docs/_templates/
+docs/build/
+docs/source/
+*.api
+
+# ============================================
+# Version Control
+# ============================================
+.python-version
+Pipfile.lock
+poetry.lock
+pyproject.toml
+Pipfile
+poetry.toml
+
+# ============================================
+# MyPy / Pyre / Pytype
+# ============================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# ============================================
+# Celery
+# ============================================
+celerybeat-schedule
+celerybeat.pid
+celeryd.pid
+
+# ============================================
+# Flask
+# ============================================
+instance/
+.webassets-cache
+
+# ============================================
+# Node (if used)
+# ============================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.pnpm
+
+# ============================================
+# Frontend Build
+# ============================================
+dist/
+build/
+out/
+*.min.js
+*.min.css
+
+# ============================================
+# Media Files (ignore large files)
+# ============================================
+*.mp3
+*.wav
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.iso
+
+# ============================================
+# Screenshots - KEEP THESE TRACKED
+# ============================================
+!screenshots/
+!screenshots/*.png
+!screenshots/*.jpg
+!screenshots/*.jpeg
+!screenshots/*.PNG
+!screenshots/*.JPG
+
+# ============================================
+# Airflow DAGs Cache
+# ============================================
+dags/__pycache__/
+scripts/__pycache__/
+dashboard/__pycache__/
+*.pyc
+
+# ============================================
+# Git
+# ============================================
+.git/
+.gitignore
+.gitattributes
+.gitmodules
+
+# ============================================
+# Server / Web Server
+# ============================================
+*.pid
+*.lock
+*.socket
+*.sock
+.htaccess
+.htpasswd
+
+# ============================================
+# Project Specific - BatchETL
+# ============================================
+/venv
+/__pycache__
+/.pytest_cache
+/.mypy_cache
+/.ruff_cache
+
+# Docker volumes (local)
+/data_volume
+/postgres_data
+/.docker-data
+
+# Backup of sensitive files
+*.secret.yaml
+*.secret.yml
+*.env.production
+*.env.staging

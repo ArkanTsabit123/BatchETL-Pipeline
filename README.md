@@ -232,7 +232,7 @@ batch-etl/
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/batch-etl.git
+git clone https://github.com/ArkanTsabit123/BatchETL-Pipeline.git
 cd batch-etl
 
 # Start all containers
@@ -561,9 +561,9 @@ This project is licensed under the MIT License.
 
 ## Contact
 
-- **Project Maintainer**: Data Engineering Team
-- **GitHub**: [https://github.com/yourusername/batch-etl](https://github.com/yourusername/batch-etl)
-- **Issues**: [https://github.com/yourusername/batch-etl/issues](https://github.com/yourusername/batch-etl/issues)
+- **Project Maintainer**: Arkan Tsabit
+- **GitHub**: [https://github.com/ArkanTsabit123/BatchETL-Pipeline](https://github.com/ArkanTsabit123/BatchETL-Pipeline)
+- **Issues**: [https://github.com/ArkanTsabit123/BatchETL-Pipeline/issues](https://github.com/ArkanTsabit123/BatchETL-Pipeline/issues)
 
 ---
 
