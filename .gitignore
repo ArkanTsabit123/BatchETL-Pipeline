@@ -1,0 +1,75 @@
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Airflow
+airflow.db
+airflow.cfg
+webserver_config.py
+logs/
+plugins/
+*.pid
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# PostgreSQL
+postgres_data/
+*.duckdb
+*.db
+*.log
+
+# Data Files
+data/raw/*.csv
+data/staging/*.csv
+!data/raw/.gitkeep
+!data/staging/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Logs
+logs/
+*.log
+
+# Streamlit
+.streamlit/
+.streamlit/config.toml
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment
+.env
+.env.local
+
+# Backup
+*.bak
+*.tmp
+*.zip
+*.tar.gz
