@@ -6,17 +6,17 @@ Checks:
     - Airflow container status
     - Airflow UI accessibility
     - DAG file syntax
-    - DAG list in UI
-    - DAG status (paused/unpaused)
-    - Task logs (last 20 lines)
+    - DAG list in UI (with session auth)
+    - DAG status
 """
 
 import subprocess
 import sys
 import ast
 import requests
+import re
 from pathlib import Path
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List, Dict
 
 
 class Colors:
@@ -53,8 +53,8 @@ def run_command(command: List[str]) -> Tuple[bool, str]:
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=10)
         return result.returncode == 0, result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        return False, str(e)
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False, ""
 
 
 def check_airflow_container() -> bool:
@@ -70,13 +70,12 @@ def check_airflow_container() -> bool:
         print_check("Airflow container is running", True, output)
         return True
     else:
-        # Check if container exists but is stopped
-        exists, _ = run_command([
+        exists, stopped_output = run_command([
             'docker', 'ps', '-a', '--filter', 'name=batch-etl-airflow',
             '--format', '{{.Status}}'
         ])
 
-        if exists and output:
+        if exists and stopped_output:
             print_check("Airflow container is STOPPED", False, "Container exists but not running")
             print(f"     {Colors.YELLOW}-> Run: docker-compose start airflow{Colors.END}")
         else:
@@ -89,7 +88,6 @@ def check_airflow_ui() -> bool:
     """Check if Airflow UI is accessible."""
     print_header("AIRFLOW UI")
 
-    # Check if port is open
     try:
         response = requests.get('http://localhost:8080', timeout=5)
         accessible = response.status_code == 200
@@ -118,7 +116,6 @@ def check_dag_file() -> bool:
 
     print_check("DAG file exists", True)
 
-    # Check syntax
     try:
         with open(dag_path, 'r') as f:
             content = f.read()
@@ -167,27 +164,63 @@ def check_dag_content() -> bool:
 
 
 def check_dag_in_ui() -> bool:
-    """Check if DAG appears in Airflow UI."""
+    """Check if DAG appears in Airflow UI with session authentication."""
     print_header("DAG IN UI")
 
     try:
-        response = requests.get('http://localhost:8080/api/v1/dags', timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            dags = [dag['dag_id'] for dag in data.get('dags', [])]
-            if 'etl_pipeline' in dags:
-                print_check("DAG 'etl_pipeline' found in UI", True)
-                return True
+        # Create session
+        session = requests.Session()
+        
+        # Get login page to get CSRF token
+        login_page = session.get('http://localhost:8080/login')
+        csrf_token = None
+        
+        # Extract CSRF token
+        csrf_match = re.search(r'name="csrf_token".*?value="(.*?)"', login_page.text)
+        if csrf_match:
+            csrf_token = csrf_match.group(1)
+        
+        # Login data
+        login_data = {
+            'username': 'admin',
+            'password': 'admin'
+        }
+        if csrf_token:
+            login_data['csrf_token'] = csrf_token
+        
+        # Perform login
+        login_response = session.post('http://localhost:8080/login', data=login_data)
+        
+        # Check if login successful
+        if login_response.status_code == 200 or 'home' in login_response.url:
+            # Now fetch DAGs with authenticated session
+            response = session.get('http://localhost:8080/api/v1/dags', timeout=5)
+            
+            if response.status_code == 200:
+                data = response.json()
+                dags = [dag['dag_id'] for dag in data.get('dags', [])]
+                if 'etl_pipeline' in dags:
+                    print_check("DAG 'etl_pipeline' found in UI", True)
+                    return True
+                else:
+                    print_check("DAG 'etl_pipeline' NOT found in UI", False)
+                    print(f"     {Colors.YELLOW}-> Available DAGs: {', '.join(dags[:5]) if dags else 'None'}{Colors.END}")
+                    print(f"     {Colors.YELLOW}-> Check if DAG file is in the correct folder{Colors.END}")
+                    return False
             else:
-                print_check("DAG 'etl_pipeline' NOT found in UI", False)
-                print(f"     {Colors.YELLOW}-> Available DAGs: {', '.join(dags[:5])}{Colors.END}")
-                print(f"     {Colors.YELLOW}-> Check if DAG file is in the correct folder{Colors.END}")
+                print_check("Could not fetch DAG list", False, f"Status: {response.status_code}")
+                print(f"     {Colors.YELLOW}-> Try logging in manually at http://localhost:8080{Colors.END}")
                 return False
         else:
-            print_check("Could not fetch DAG list", False, f"Status: {response.status_code}")
+            print_check("Login to Airflow failed", False, "Check credentials or CSRF token")
+            print(f"     {Colors.YELLOW}-> Try logging in manually at http://localhost:8080{Colors.END}")
             return False
-    except Exception:
+            
+    except requests.ConnectionError:
         print_check("Could not fetch DAG list", False, "Airflow UI not accessible")
+        return False
+    except Exception as e:
+        print_check("Could not fetch DAG list", False, str(e))
         return False
 
 
@@ -195,14 +228,19 @@ def main() -> None:
     """Main entry point."""
     print_header("BATCHETL PIPELINE - AIRFLOW TROUBLESHOOTING")
 
+    container_ok = check_airflow_container()
+    ui_ok = check_airflow_ui()
+    dag_file_ok = check_dag_file()
+    dag_content_ok = check_dag_content()
+
     results = {
-        'container': check_airflow_container(),
-        'ui': check_airflow_ui(),
-        'dag_file': check_dag_file(),
-        'dag_content': check_dag_content(),
+        'container': container_ok,
+        'ui': ui_ok,
+        'dag_file': dag_file_ok,
+        'dag_content': dag_content_ok,
     }
 
-    if results['ui']:
+    if container_ok and ui_ok:
         results['dag_in_ui'] = check_dag_in_ui()
 
     print_header("AIRFLOW TROUBLESHOOTING SUMMARY")

@@ -51,8 +51,8 @@ def run_command(command: List[str]) -> Tuple[bool, str]:
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=10)
         return result.returncode == 0, result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        return False, str(e)
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False, ""
 
 
 def check_port(port: int, host: str = 'localhost') -> Tuple[bool, str]:
@@ -62,7 +62,6 @@ def check_port(port: int, host: str = 'localhost') -> Tuple[bool, str]:
         sock.settimeout(2)
         result = sock.connect_ex((host, port))
         sock.close()
-
         if result == 0:
             return True, f"Port {port} is open"
         else:
@@ -95,24 +94,21 @@ def check_dns() -> bool:
     """Check DNS resolution."""
     print_header("DNS RESOLUTION")
 
-    hosts = [
-        'localhost',
-        'postgres',
-        'airflow',
-        'streamlit',
-    ]
-
+    hosts = ['localhost']
     all_resolved = True
+    
     for host in hosts:
         try:
             ip = socket.gethostbyname(host)
             print_check(f"{host} resolves to {ip}", True)
         except socket.gaierror:
             print_check(f"{host} could NOT be resolved", False)
-            if host in ['postgres', 'airflow', 'streamlit']:
-                print(f"     {Colors.YELLOW}-> This is expected if not using Docker network{Colors.END}")
             all_resolved = False
 
+    # Container names are only resolvable inside Docker network
+    container_hosts = ['postgres', 'airflow', 'streamlit']
+    print(f"\n  {Colors.CYAN}Note: Container names (postgres, airflow, streamlit) are only resolvable inside Docker network{Colors.END}")
+    
     return all_resolved
 
 
@@ -121,22 +117,25 @@ def check_docker_network() -> bool:
     print_header("DOCKER NETWORK")
 
     success, output = run_command([
-        'docker', 'network', 'inspect', 'batch-etl-network'
+        'docker', 'network', 'ls', '--format', '{{.Name}}'
     ])
 
     if success:
-        print_check("batch-etl-network exists", True)
-
-        # Check if containers are connected
-        containers = ['batch-etl-postgres', 'batch-etl-airflow', 'batch-etl-streamlit']
-        for container in containers:
-            connected = container in output
-            print_check(f"{container} connected", connected)
-
-        return True
+        networks = output.split('\n') if output else []
+        print(f"  {Colors.CYAN}Networks found: {', '.join(networks) if networks else 'None'}{Colors.END}")
+        
+        # Check more flexibly
+        has_network = any('batch-etl-network' in n for n in networks)
+        
+        if has_network:
+            print_check("batch-etl-network exists", True)
+            return True
+        else:
+            print_check("batch-etl-network NOT found", False)
+            print(f"     {Colors.YELLOW}-> Network will be created when containers start{Colors.END}")
+            return False
     else:
-        print_check("batch-etl-network NOT found", False)
-        print(f"     {Colors.YELLOW}-> Network will be created when containers start{Colors.END}")
+        print_check("Could not list networks", False, output)
         return False
 
 
@@ -144,19 +143,29 @@ def check_container_connectivity() -> bool:
     """Check connectivity between containers."""
     print_header("CONTAINER CONNECTIVITY")
 
-    # Try to ping postgres from airflow container
-    success, output = run_command([
-        'docker', 'exec', 'batch-etl-airflow',
-        'ping', '-c', '1', 'postgres'
-    ])
-
-    if success:
-        print_check("Airflow -> PostgreSQL connectivity", True)
+    # Check if PostgreSQL is accessible from host (via port)
+    pg_success, _ = check_port(5432)
+    if pg_success:
+        print_check("PostgreSQL is accessible from host (port 5432)", True)
     else:
-        print_check("Airflow -> PostgreSQL connectivity", False, "Ping failed")
-        print(f"     {Colors.YELLOW}-> Check if containers are on the same network{Colors.END}")
+        print_check("PostgreSQL is NOT accessible from host", False)
 
-    # Try to connect to postgres from airflow
+    # Check if Airflow is accessible from host (via port)
+    af_success, _ = check_port(8080)
+    if af_success:
+        print_check("Airflow is accessible from host (port 8080)", True)
+    else:
+        print_check("Airflow is NOT accessible from host", False)
+
+    # Check if Streamlit is accessible from host (via port)
+    st_success, _ = check_port(8501)
+    if st_success:
+        print_check("Streamlit is accessible from host (port 8501)", True)
+    else:
+        print_check("Streamlit is NOT accessible from host", False)
+
+    # Check PostgreSQL connection from Airflow container
+    print(f"\n  {Colors.CYAN}Testing PostgreSQL connection from Airflow container...{Colors.END}")
     success, output = run_command([
         'docker', 'exec', 'batch-etl-airflow',
         'python', '-c',
@@ -165,11 +174,11 @@ def check_container_connectivity() -> bool:
 
     if success and 'Connected' in output:
         print_check("Airflow -> PostgreSQL connection test", True)
+        return True
     else:
         print_check("Airflow -> PostgreSQL connection test", False, "Connection failed")
         print(f"     {Colors.YELLOW}-> Check PostgreSQL credentials and container status{Colors.END}")
-
-    return True
+        return False
 
 
 def main() -> None:

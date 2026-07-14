@@ -203,7 +203,7 @@ class Phase8Verifier(PhaseVerifier):
             return False, ""
 
     def check_documentation_files(self) -> bool:
-        """Verify documentation files exist."""
+        """Verify documentation files exist (check root and docs/ folder)."""
         self.print_section("Documentation Files")
 
         docs = [
@@ -215,17 +215,20 @@ class Phase8Verifier(PhaseVerifier):
 
         all_exist = True
         for doc, description in docs:
-            file_path = self.project_root / doc
-            exists = file_path.exists()
-
+            # Cek di root dan di folder docs
+            root_path = self.project_root / doc
+            docs_path = self.project_root / 'docs' / doc
+            exists = root_path.exists() or docs_path.exists()
+            
             if exists:
-                size_kb = file_path.stat().st_size / 1024
-                self.print_check(f"{doc}", True, f"{size_kb:.1f} KB - {description}")
+                location = "root" if root_path.exists() else "docs/"
+                self.print_check(f"{doc} ({location})", True, description)
             else:
-                self.print_check(f"{doc}", False, "Not found")
+                self.print_check(f"{doc}", False, description)
                 all_exist = False
 
-        self.add_result('documentation_files', all_exist, 'All documentation files exist' if all_exist else 'Some files missing')
+        self.add_result('documentation_files', all_exist, 
+                        'All documentation files exist' if all_exist else 'Some files missing')
         return all_exist
 
     def check_license(self) -> bool:
@@ -260,7 +263,8 @@ class Phase8Verifier(PhaseVerifier):
             found_entries = [entry for entry in required_entries if entry in content]
 
             self.print_check(".gitignore exists", True)
-            self.print_check(f"Found {len(found_entries)}/{len(required_entries)} required entries", len(found_entries) == len(required_entries))
+            self.print_check(f"Found {len(found_entries)}/{len(required_entries)} required entries", 
+                           len(found_entries) == len(required_entries))
 
             self.add_result('gitignore', True, '.gitignore configured')
             return True
@@ -278,12 +282,10 @@ class Phase8Verifier(PhaseVerifier):
         self.print_check(".git directory exists", exists)
 
         if exists:
-            # Check if there are commits
             success, output = self._run_git_command(['git', 'log', '--oneline'])
             has_commits = success and output
             self.print_check("Git commits exist", has_commits)
 
-            # Check remote
             success, remote = self._run_git_command(['git', 'remote', 'get-url', 'origin'])
             has_remote = success and remote
             self.print_check("Git remote configured", has_remote, remote if has_remote else "")
@@ -319,9 +321,9 @@ class Phase8Verifier(PhaseVerifier):
             ]
 
             found_sections = [section for section in required_sections if section in content]
-            self.print_check(f"Found {len(found_sections)}/{len(required_sections)} required sections", len(found_sections) == len(required_sections))
+            self.print_check(f"Found {len(found_sections)}/{len(required_sections)} required sections", 
+                           len(found_sections) == len(required_sections))
 
-            # Check for badges
             has_badges = 'badge' in content.lower() or 'img.shields.io' in content
             self.print_check("Badges present", has_badges)
 

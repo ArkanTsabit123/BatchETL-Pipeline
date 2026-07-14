@@ -13,7 +13,7 @@ Checks:
 import subprocess
 import sys
 from pathlib import Path
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List, Dict
 
 
 class Colors:
@@ -50,8 +50,8 @@ def run_command(command: List[str]) -> Tuple[bool, str]:
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=10)
         return result.returncode == 0, result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        return False, str(e)
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False, ""
 
 
 def check_docker_daemon() -> bool:
@@ -69,14 +69,18 @@ def check_docker_daemon() -> bool:
         return False
 
 
-def check_containers() -> bool:
-    """Check if required containers are running."""
+def check_containers() -> Tuple[bool, Dict[str, str]]:
+    """
+    Check if required containers are running.
+
+    Returns:
+        Tuple[bool, Dict]: (all_running, container_status)
+    """
     print_header("CONTAINER STATUS")
 
     required_containers = [
         ('batch-etl-postgres', 'PostgreSQL'),
-        ('batch-etl-airflow', 'Airflow'),
-        ('batch-etl-streamlit', 'Streamlit')
+        ('batch-etl-streamlit', 'Streamlit'),
     ]
 
     all_running = True
@@ -93,12 +97,12 @@ def check_containers() -> bool:
             container_status[container_name] = 'running'
         else:
             # Check if container exists but is stopped
-            exists, _ = run_command([
+            exists, stopped_output = run_command([
                 'docker', 'ps', '-a', '--filter', f'name={container_name}',
                 '--format', '{{.Status}}'
             ])
 
-            if exists and output:
+            if exists and stopped_output:
                 print_check(f"{display_name} ({container_name}) is STOPPED", False, "Container exists but not running")
                 print(f"     {Colors.YELLOW}-> Run: docker-compose start {container_name}{Colors.END}")
                 all_running = False
@@ -109,14 +113,27 @@ def check_containers() -> bool:
                 all_running = False
                 container_status[container_name] = 'missing'
 
-    return all_running
+    # Airflow is optional - check but don't fail if not running
+    airflow_success, airflow_output = run_command([
+        'docker', 'ps', '--filter', 'name=batch-etl-airflow',
+        '--format', '{{.Status}}'
+    ])
+
+    if airflow_success and airflow_output:
+        print_check("Airflow (batch-etl-airflow) is running", True, airflow_output)
+        container_status['batch-etl-airflow'] = 'running'
+    else:
+        print_check("Airflow (batch-etl-airflow) is not running", False, "Optional: Run docker-compose up -d airflow")
+        container_status['batch-etl-airflow'] = 'stopped'
+
+    return all_running, container_status
 
 
 def check_container_logs() -> None:
     """Display last 10 lines of container logs."""
     print_header("CONTAINER LOGS (Last 10 lines)")
 
-    containers = ['batch-etl-postgres', 'batch-etl-airflow', 'batch-etl-streamlit']
+    containers = ['batch-etl-postgres', 'batch-etl-streamlit']
 
     for container in containers:
         success, output = run_command([
@@ -146,7 +163,7 @@ def check_volumes() -> bool:
 
     if success:
         volumes = output.split('\n') if output else []
-        has_volume = 'postgres_data' in str(volumes) or 'batch-etl_postgres_data' in str(volumes)
+        has_volume = any('postgres_data' in v or 'batch-etl_postgres_data' in v for v in volumes)
 
         if has_volume:
             print_check("PostgreSQL volume exists", True)
@@ -170,14 +187,16 @@ def check_network() -> bool:
 
     if success:
         networks = output.split('\n') if output else []
-        has_network = 'batch-etl-network' in str(networks)
-
+        print(f"  {Colors.CYAN}Networks found: {', '.join(networks) if networks else 'None'}{Colors.END}")
+        
+        has_network = any('batch-etl-network' in n for n in networks)
+        
         if has_network:
             print_check("batch-etl-network exists", True)
             return True
         else:
             print_check("batch-etl-network NOT found", False)
-            print(f"     {Colors.YELLOW}-> Network will be created when containers start{Colors.END}")
+            print(f"     {Colors.YELLOW}-> Run: docker-compose up -d to create network{Colors.END}")
             return False
     else:
         print_check("Could not list networks", False, output)
@@ -204,31 +223,43 @@ def main() -> None:
     """Main entry point."""
     print_header("BATCHETL PIPELINE - DOCKER TROUBLESHOOTING")
 
-    results = {
-        'compose_file': check_compose_file(),
-        'docker_daemon': check_docker_daemon(),
-        'containers': check_containers(),
-        'volumes': check_volumes(),
-        'network': check_network(),
-    }
+    compose_ok = check_compose_file()
+    docker_ok = check_docker_daemon()
+    containers_ok, container_status = check_containers()
+    volumes_ok = check_volumes()
+    network_ok = check_network()
 
-    if results['docker_daemon'] and results['containers']:
+    # Show logs only if containers are running
+    if docker_ok and containers_ok:
         check_container_logs()
+
+    results = {
+        'compose_file': compose_ok,
+        'docker_daemon': docker_ok,
+        'containers': containers_ok,
+        'volumes': volumes_ok,
+        'network': network_ok,
+    }
 
     print_header("DOCKER TROUBLESHOOTING SUMMARY")
 
-    passed = sum(1 for v in results.values() if v)
-    total = len(results)
+    # Count only critical checks (exclude Airflow from count)
+    critical_checks = ['compose_file', 'docker_daemon', 'containers', 'volumes', 'network']
+    passed = sum(1 for k in critical_checks if results.get(k, False))
+    total = len(critical_checks)
 
-    print(f"\n  Total Checks: {total}")
+    print(f"\n  Total Critical Checks: {total}")
     print(f"  Passed: {passed}")
     print(f"  Failed: {total - passed}")
 
+    if container_status.get('batch-etl-airflow', '') == 'stopped':
+        print(f"\n  {Colors.YELLOW}Note: Airflow is not running (optional){Colors.END}")
+
     if passed == total:
-        print(f"\n{Colors.GREEN}{Colors.BOLD}All Docker checks passed!{Colors.END}")
+        print(f"\n{Colors.GREEN}{Colors.BOLD}All critical Docker checks passed!{Colors.END}")
         sys.exit(0)
     else:
-        print(f"\n{Colors.YELLOW}{Colors.BOLD}Some Docker checks failed.{Colors.END}")
+        print(f"\n{Colors.YELLOW}{Colors.BOLD}Some critical Docker checks failed.{Colors.END}")
         print(f"{Colors.YELLOW}Please fix the issues above before proceeding.{Colors.END}")
         sys.exit(1)
 

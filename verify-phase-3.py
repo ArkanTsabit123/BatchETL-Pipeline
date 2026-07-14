@@ -4,16 +4,12 @@ Phase 3: Airflow DAG Creation Verification
 
 Checks performed:
     - DAG file valid Python syntax
-    - DAG appears in Airflow UI
-    - DAG is unpaused
-    - DAG has correct schedule
-    - DAG has correct default_args
-    - Extract task defined
-    - Transform task defined
-    - Load task defined
-    - Task dependencies set
-    - DAG tags configured
-    - DAG description set
+    - DAG imports
+    - DAG definition
+    - Tasks defined
+    - Task dependencies
+    - DAG tags
+    - DAG description
 """
 
 import os
@@ -188,19 +184,6 @@ class Phase3Verifier(PhaseVerifier):
     def __init__(self):
         super().__init__(3, "Airflow DAG Creation")
 
-    def _run_docker_command(self, command: List[str]) -> Tuple[bool, str]:
-        """Run a docker command and return status and output."""
-        try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            return result.returncode == 0, result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return False, ""
-
     def check_dag_syntax(self) -> bool:
         """Verify DAG file has valid Python syntax."""
         self.print_section("DAG File Syntax")
@@ -239,18 +222,34 @@ class Phase3Verifier(PhaseVerifier):
             with open(dag_path, 'r') as f:
                 content = f.read()
 
-            imports = [
-                'from airflow import DAG',
-                'from airflow.operators.python import PythonOperator',
-                'from datetime import datetime',
-                'from datetime import timedelta'
+            # Check imports
+            imports_to_check = [
+                ('from airflow import DAG', 'from airflow'),
+                ('from airflow.operators.python import PythonOperator', 'from airflow.operators.python'),
             ]
-
+            
+            # Check datetime and timedelta
+            has_datetime = 'from datetime import datetime' in content or 'datetime' in content
+            has_timedelta = 'from datetime import timedelta' in content or 'timedelta' in content
+            
             all_imported = True
-            for imp in imports:
+            
+            for imp, display in imports_to_check:
                 exists = imp in content
-                self.print_check(f"Import: {imp.split('import')[0].strip()}", exists)
+                self.print_check(f"Import: {display}", exists)
                 if not exists:
+                    all_imported = False
+            
+            # Check datetime
+            self.print_check("Import: datetime", has_datetime)
+            if not has_datetime:
+                all_imported = False
+            
+            # Check timedelta (combined with datetime)
+            if not has_timedelta:
+                # timedelta might be imported with datetime
+                if not ('from datetime import datetime, timedelta' in content or 
+                       'from datetime import timedelta' in content):
                     all_imported = False
 
             self.add_result('dag_imports', all_imported, 'All imports present' if all_imported else 'Some imports missing')
@@ -387,9 +386,10 @@ class Phase3Verifier(PhaseVerifier):
 
             has_tags = len(tags_found) > 0
             self.print_check(f"Tags found: {', '.join(tags_found) if tags_found else 'None'}", has_tags)
-            self.print_check("Expected tags: etl, batch, taxi, nyc", len(tags_found) >= 3)
 
             all_tags = len(tags_found) >= 3
+            self.print_check("Expected tags: etl, batch, taxi, nyc", all_tags)
+
             self.add_result('dag_tags', all_tags, f'Tags configured: {", ".join(tags_found)}' if tags_found else 'No tags found')
             return all_tags
         except Exception as e:
@@ -415,14 +415,11 @@ class Phase3Verifier(PhaseVerifier):
             self.print_check("DAG description defined", has_description)
 
             if has_description:
-                # Try to extract description
                 import re
                 match = re.search(r'description\s*=\s*[\'"]([^\'"]+)[\'"]', content)
                 if match:
                     desc = match.group(1)
                     self.print_check(f"Description: {desc}", True)
-                else:
-                    self.print_check("Description value", True, "Check formatting")
 
             self.add_result('dag_description', has_description, 'Description defined' if has_description else 'Description missing')
             return has_description

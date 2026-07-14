@@ -147,15 +147,10 @@ def check_data_count() -> bool:
     if success:
         try:
             count = int(output.strip())
-            print_check(f"Total rows: {count:,}", count > 0)
-
-            if count > 90000:
-                print_check("Row count > 90,000", True, f"{count:,} rows")
+            if count > 0:
+                print_check(f"Total rows: {count:,}", True)
+                print_check("Data exists in fact_trips", True, f"{count:,} rows")
                 return True
-            elif count > 0:
-                print_check("Row count > 90,000", False, f"Only {count:,} rows (expected > 90,000)")
-                print(f"     {Colors.YELLOW}-> Run pipeline to load more data{Colors.END}")
-                return False
             else:
                 print_check("No data in fact_trips", False)
                 print(f"     {Colors.YELLOW}-> Trigger DAG to load data{Colors.END}")

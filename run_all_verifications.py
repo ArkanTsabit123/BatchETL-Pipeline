@@ -3,7 +3,7 @@
 Run All Verifications - BatchETL Pipeline
 
 This script runs all 8 phase verification scripts sequentially
-and displays a summary of results.
+and displays a summary of results with actual output.
 """
 
 import os
@@ -34,7 +34,7 @@ def print_header(text: str) -> None:
 
 def print_check(text: str, status: bool, detail: str = "") -> None:
     """Print check result with appropriate color."""
-    icon = "PASS" if status else "FAIL"
+    icon = "✓" if status else "✗"
     color = Colors.GREEN if status else Colors.RED
     if detail:
         print(f"{color}{icon} {text}{Colors.END}")
@@ -58,14 +58,18 @@ def get_phase_info(phase: int) -> Tuple[str, str]:
     return phases.get(phase, (f"Phase {phase}", ""))
 
 
-def run_verification(phase: int) -> bool:
-    """Run a single phase verification script."""
+def run_verification(phase: int) -> Tuple[bool, str]:
+    """
+    Run a single phase verification script and capture its output.
+    
+    Returns:
+        Tuple[bool, str]: (success, output_message)
+    """
     script = f"verify-phase-{phase}.py"
     phase_name, description = get_phase_info(phase)
 
     if not os.path.exists(script):
-        print_check(f"{script} not found", False, "File missing")
-        return False
+        return False, f"Script {script} not found"
 
     print(f"\n{Colors.CYAN}{'=' * 60}{Colors.END}")
     print(f"{Colors.BOLD}{Colors.BLUE}Phase {phase}: {phase_name}{Colors.END}")
@@ -73,25 +77,27 @@ def run_verification(phase: int) -> bool:
     print(f"{Colors.CYAN}{'=' * 60}{Colors.END}\n")
 
     try:
+        # Run with real-time output
         result = subprocess.run(
             [sys.executable, script],
             capture_output=False,
             timeout=120
         )
         success = result.returncode == 0
+        
+        if success:
+            print_check(f"Phase {phase} PASSED", True)
+            return True, f"Phase {phase} completed successfully"
+        else:
+            print_check(f"Phase {phase} FAILED", False)
+            return False, f"Phase {phase} failed with exit code {result.returncode}"
+            
     except subprocess.TimeoutExpired:
         print_check(f"Phase {phase} TIMEOUT", False, "Exceeded 120 seconds")
-        return False
+        return False, "Timeout exceeded"
     except Exception as e:
         print_check(f"Phase {phase} ERROR", False, str(e))
-        return False
-
-    if success:
-        print_check(f"Phase {phase} PASSED", True)
-    else:
-        print_check(f"Phase {phase} FAILED", False)
-
-    return success
+        return False, str(e)
 
 
 def check_verification_files() -> List[int]:
@@ -121,11 +127,17 @@ def main() -> None:
 
     results: Dict[str, bool] = {}
     phase_names: Dict[str, str] = {}
+    error_messages: Dict[str, str] = {}
 
     for phase in existing:
         phase_name, _ = get_phase_info(phase)
-        results[f"Phase {phase}"] = run_verification(phase)
-        phase_names[f"Phase {phase}"] = phase_name
+        phase_key = f"Phase {phase}"
+        
+        success, message = run_verification(phase)
+        results[phase_key] = success
+        phase_names[phase_key] = phase_name
+        if not success:
+            error_messages[phase_key] = message
 
     # Summary
     print_header("VERIFICATION SUMMARY")
@@ -144,6 +156,17 @@ def main() -> None:
     print(f"\n{Colors.BOLD}{'=' * 40}{Colors.END}")
     print(f"{Colors.BOLD}Total: {passed}/{total} passed{Colors.END}")
 
+    # Show detailed results
+    print(f"\n{Colors.BOLD}Detailed Results:{Colors.END}")
+    for phase, status in results.items():
+        status_text = f"{Colors.GREEN}PASS{Colors.END}" if status else f"{Colors.RED}FAIL{Colors.END}"
+        print(f"  {phase}: {status_text}")
+
+    if error_messages:
+        print(f"\n{Colors.RED}{Colors.BOLD}Failed Phases Details:{Colors.END}")
+        for phase, message in error_messages.items():
+            print(f"  {Colors.RED}✗ {phase}: {message}{Colors.END}")
+
     if passed == total:
         print(f"\n{Colors.GREEN}{Colors.BOLD}All verifications passed! Project is ready!{Colors.END}")
         sys.exit(0)
@@ -151,7 +174,6 @@ def main() -> None:
     print(f"\n{Colors.YELLOW}{Colors.BOLD}Some verifications failed.{Colors.END}")
     print(f"{Colors.YELLOW}Fix the failed items before proceeding{Colors.END}")
 
-    # Show which phases failed
     failed_phases = [p for p, s in results.items() if not s]
     if failed_phases:
         print(f"\n{Colors.RED}Failed phases: {', '.join(failed_phases)}{Colors.END}")
