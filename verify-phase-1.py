@@ -387,7 +387,10 @@ class Phase1Verifier(PhaseVerifier):
 
         all_exist = True
         for doc, description in docs:
-            exists = (self.project_root / doc).exists()
+            # Cek di root atau docs folder
+            root_path = self.project_root / doc
+            docs_path = self.project_root / 'docs' / doc
+            exists = root_path.exists() or docs_path.exists()
             self.print_check(f"{doc}", exists, description)
             if not exists:
                 all_exist = False
