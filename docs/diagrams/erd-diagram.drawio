@@ -1,0 +1,27 @@
+-- =============================================================================
+-- BATCHETL PIPELINE - DATA WAREHOUSE SCHEMA
+-- =============================================================================
+
+CREATE TABLE fact_trips (
+    trip_id             SERIAL          PRIMARY KEY,
+    vendor_id           SMALLINT        NULL,
+    payment_type        SMALLINT        NULL,
+    pickup_datetime     TIMESTAMP       NULL,
+    dropoff_datetime    TIMESTAMP       NULL,
+    pickup_hour         SMALLINT        NULL,
+    pickup_day          VARCHAR(20)     NULL,
+    pickup_month        SMALLINT        NULL,
+    passenger_count     SMALLINT        NULL,
+    trip_distance       REAL            NULL,
+    fare_amount         REAL            NULL,
+    total_amount        REAL            NULL
+);
+
+CREATE INDEX idx_pickup_datetime ON fact_trips(pickup_datetime);
+CREATE INDEX idx_pickup_day ON fact_trips(pickup_day);
+CREATE INDEX idx_fare_amount ON fact_trips(fare_amount);
+CREATE INDEX idx_trip_distance ON fact_trips(trip_distance);
+CREATE INDEX idx_vendor_id ON fact_trips(vendor_id);
+CREATE INDEX idx_payment_type ON fact_trips(payment_type);
+CREATE INDEX idx_pickup_hour ON fact_trips(pickup_hour);
+CREATE INDEX idx_pickup_month ON fact_trips(pickup_month);

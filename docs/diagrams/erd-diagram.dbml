@@ -1,0 +1,40 @@
+// =============================================================================
+// BATCHETL PIPELINE - DATA WAREHOUSE SCHEMA
+// =============================================================================
+// Database: PostgreSQL 15
+// Table: fact_trips
+// Description: Central fact table for NYC Taxi trip analytics
+// =============================================================================
+
+
+// =============================================================================
+// TABLE: fact_trips
+// =============================================================================
+
+Table fact_trips {
+  trip_id SERIAL [pk, increment, note: 'Surrogate primary key - auto-incrementing serial']
+  vendor_id SMALLINT [null, note: 'Vendor code: 1 = CMT, 2 = VeriFone']
+  payment_type SMALLINT [null, note: 'Payment code: 1=Credit, 2=Cash, 3=No Charge, 4=Dispute, 5=Unknown']
+  pickup_datetime TIMESTAMP [null, note: 'Trip start timestamp in NYC local time']
+  dropoff_datetime TIMESTAMP [null, note: 'Trip end timestamp in NYC local time']
+  pickup_hour SMALLINT [null, note: 'Hour of pickup extracted from pickup_datetime (0-23)']
+  pickup_day VARCHAR(20) [null, note: 'Day name extracted from pickup_datetime (Monday-Sunday)']
+  pickup_month SMALLINT [null, note: 'Month number extracted from pickup_datetime (1-12)']
+  passenger_count SMALLINT [null, note: 'Number of passengers in the trip']
+  trip_distance REAL [null, note: 'Trip distance in miles']
+  fare_amount REAL [null, note: 'Base fare amount in USD']
+  total_amount REAL [null, note: 'Total amount including all fees in USD']
+
+  Indexes {
+    pickup_datetime [name: 'idx_pickup_datetime']
+    pickup_day [name: 'idx_pickup_day']
+    fare_amount [name: 'idx_fare_amount']
+    trip_distance [name: 'idx_trip_distance']
+    vendor_id [name: 'idx_vendor_id']
+    payment_type [name: 'idx_payment_type']
+    pickup_hour [name: 'idx_pickup_hour']
+    pickup_month [name: 'idx_pickup_month']
+  }
+
+  note: 'Central fact table for NYC Taxi trip analytics'
+}

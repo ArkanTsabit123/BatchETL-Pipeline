@@ -1,18 +1,27 @@
 # scripts/transform.py
 """
 Transform raw data with cleaning and feature engineering.
+
+This module performs data cleaning, removes duplicates and outliers,
+and adds new features for analysis.
 """
 
 import pandas as pd
 import os
 from datetime import datetime
+from typing import Dict, Any
 
 
-def transform_data():
-    """Transform raw data with cleaning and feature engineering."""
-    # Path lokal Windows
-    raw_path = 'data/staging/taxi_raw.csv'
-    clean_path = 'data/staging/taxi_clean.csv'
+def transform_data() -> Dict[str, Any]:
+    """
+    Transform raw data with cleaning and feature engineering.
+
+    Returns:
+        Dict[str, Any]: Dictionary containing transformation statistics.
+    """
+    # Define paths
+    raw_path = '/opt/airflow/data/staging/taxi_raw.csv'
+    clean_path = '/opt/airflow/data/staging/taxi_clean.csv'
     
     # Read raw data
     df = pd.read_csv(raw_path)
@@ -23,7 +32,8 @@ def transform_data():
     duplicates_removed = original_count - len(df)
     
     # 2. Drop nulls on critical columns
-    critical_columns = ['tpep_pickup_datetime', 'tpep_dropoff_datetime', 'trip_distance', 'fare_amount']
+    critical_columns = ['tpep_pickup_datetime', 'tpep_dropoff_datetime', 
+                        'trip_distance', 'fare_amount']
     df_before_nulls = df.copy()
     df = df.dropna(subset=critical_columns)
     nulls_removed = len(df_before_nulls) - len(df)
@@ -36,7 +46,8 @@ def transform_data():
     df['pickup_hour'] = df['tpep_pickup_datetime'].dt.hour
     df['pickup_day'] = df['tpep_pickup_datetime'].dt.day_name()
     df['pickup_month'] = df['tpep_pickup_datetime'].dt.month
-    df['trip_duration'] = (df['tpep_dropoff_datetime'] - df['tpep_pickup_datetime']).dt.total_seconds() / 60
+    df['trip_duration'] = (df['tpep_dropoff_datetime'] - 
+                           df['tpep_pickup_datetime']).dt.total_seconds() / 60
     
     # 5. Filter outliers
     df_before_outliers = df.copy()
@@ -53,7 +64,7 @@ def transform_data():
     ]
     df = df[final_columns]
     
-    # Rename columns to match warehouse schema
+    # 7. Rename columns to match warehouse schema
     df = df.rename(columns={
         'VendorID': 'vendor_id',
         'tpep_pickup_datetime': 'pickup_datetime',
@@ -65,9 +76,26 @@ def transform_data():
         'payment_type': 'payment_type'
     })
     
+    # 8. Fix null passenger_count - fill with median (1)
+    df['passenger_count'] = df['passenger_count'].fillna(1)
+    
+    # 9. Convert passenger_count to int
+    df['passenger_count'] = df['passenger_count'].astype(int)
+    
+    # 10. Downcast numeric columns for memory optimization
+    for col in df.select_dtypes(include=['int64']).columns:
+        df[col] = pd.to_numeric(df[col], downcast='integer')
+    
+    for col in df.select_dtypes(include=['float64']).columns:
+        df[col] = pd.to_numeric(df[col], downcast='float')
+    
+    # 11. Ensure pickup_day is string (not categorical)
+    df['pickup_day'] = df['pickup_day'].astype(str)
+    
     # Save clean data
     df.to_csv(clean_path, index=False)
     
+    # Print statistics
     print(f"Original rows: {original_count}")
     print(f"Duplicates removed: {duplicates_removed}")
     print(f"Nulls removed: {nulls_removed}")

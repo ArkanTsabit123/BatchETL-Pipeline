@@ -1,3 +1,4 @@
+```markdown
 # BatchETL Pipeline - Cheat Sheet (Apache Airflow with Docker)
 
 ---
@@ -179,9 +180,9 @@ exit
 
 ---
 
-## PostgreSQL Commands
+## Database Commands
 
-### Connect to Database
+### PostgreSQL
 
 ```bash
 # Connect via docker exec
@@ -191,17 +192,30 @@ docker exec -it batch-etl-postgres psql -U admin -d warehouse
 psql -h localhost -p 5432 -U admin -d warehouse
 ```
 
+### MySQL
+
+```bash
+# Connect via docker exec
+docker exec -it batch-etl-mysql mysql -u admin -p warehouse
+
+# Connect with custom host/port
+mysql -h localhost -P 3306 -u admin -p warehouse
+```
+
 ### Useful SQL Queries
 
 ```sql
 -- List all tables
-\dt
+\dt                 -- PostgreSQL
+SHOW TABLES;        -- MySQL
 
 -- List all indexes
-\di
+\di                 -- PostgreSQL
+SHOW INDEX FROM fact_trips;  -- MySQL
 
 -- Describe table structure
-\d fact_trips
+\d fact_trips       -- PostgreSQL
+DESCRIBE fact_trips;         -- MySQL
 
 -- Count total rows
 SELECT COUNT(*) FROM fact_trips;
@@ -233,8 +247,9 @@ GROUP BY pickup_hour
 ORDER BY trips DESC
 LIMIT 5;
 
--- Exit psql
-\q
+-- Exit psql/mysql
+\q                  -- PostgreSQL
+exit;               -- MySQL
 ```
 
 ---
@@ -247,11 +262,12 @@ LIMIT 5;
 |------|---------|
 | Apache Airflow | 2.7.3 |
 | PostgreSQL | 15 |
+| MySQL | 8.0 |
 | Streamlit | 1.29.0 |
 | Pandas | 2.0.3 |
 | SQLAlchemy | 2.0.19 |
 | Plotly | 5.18.0 |
-| Python | 3.9+ |
+| Python | 3.10+ |
 
 ### Install Dependencies
 
@@ -353,13 +369,16 @@ docker exec -it batch-etl-postgres psql -U admin -d warehouse -c "SELECT COUNT(*
 
 | Folder | Content |
 |--------|---------|
+| `archive/` | Diagram generator scripts (architecture, data flow, ERD) |
 | `dags/` | Airflow DAG files (etl_pipeline.py) |
 | `scripts/` | ETL Python scripts (extract, transform, load) |
-| `data/raw/` | Raw dataset (taxi_data.csv) |
+| `data/raw/` | Raw dataset (taxi_data.csv - 2.96M rows) |
 | `data/staging/` | Intermediate files (taxi_raw.csv, taxi_clean.csv) |
 | `warehouse/` | Database initialization (init.sql) |
 | `dashboard/` | Streamlit app (app.py) + Dockerfile |
-| `screenshots/` | Documentation screenshots (16 images) |
+| `screenshots/` | Documentation screenshots (19 images) |
+| `docs/` | Documentation files (blueprint, cheatsheets, checklist) |
+| `docs/diagrams/` | Diagram source files (PDF, XML, DBML, drawio, MWB) |
 
 ---
 
@@ -380,11 +399,21 @@ docker exec -it batch-etl-postgres psql -U admin -d warehouse -c "SELECT COUNT(*
 
 | Issue | Solution |
 |-------|----------|
-| DAG not showing | Wait 30s, restart scheduler |
+| DAG not showing | Wait 30s, restart container |
 | Task failed | Check logs in UI |
 | Task stuck in running | Clear task and retry |
-| Cannot connect to PostgreSQL | Wait for Postgres to initialize |
+| Cannot connect to database | Wait for database to initialize |
 | Authentication failed | Use admin/admin |
+| API 401 Unauthorized | Login to UI first or use session auth |
+
+### Database Issues
+
+| Issue | Solution |
+|-------|----------|
+| Connection refused | Wait for database to initialize (10-15s) |
+| Table not found | Run init.sql first |
+| Permission denied | Check credentials (admin/admin) |
+| Data not loaded | Trigger DAG first |
 
 ### Common Errors & Solutions
 
@@ -495,6 +524,7 @@ docker exec -it batch-etl-airflow airflow dags list-runs --dag-id etl_pipeline
 | Airflow UI | http://localhost:8080 |
 | Streamlit Dashboard | http://localhost:8501 |
 | PostgreSQL | localhost:5432 |
+| MySQL | localhost:3306 |
 | NYC Taxi Data | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
 
 ---
@@ -505,6 +535,7 @@ docker exec -it batch-etl-airflow airflow dags list-runs --dag-id etl_pipeline
 |----------|-----|
 | Airflow Docs | https://airflow.apache.org/docs/ |
 | PostgreSQL Docs | https://www.postgresql.org/docs/ |
+| MySQL Docs | https://dev.mysql.com/doc/ |
 | Streamlit Docs | https://docs.streamlit.io/ |
 | Plotly Docs | https://plotly.com/python/ |
 | Pandas Docs | https://pandas.pydata.org/docs/ |
@@ -515,14 +546,16 @@ docker exec -it batch-etl-airflow airflow dags list-runs --dag-id etl_pipeline
 
 ## Quick Tips
 
-1. **Always use Docker** on Windows for Airflow
-2. **Activate venv** before working with Python
-3. **Check `docker-compose ps`** to ensure all services are running
-4. **Use `docker-compose logs -f`** to monitor in real-time
-5. **Wait for PostgreSQL** to initialize (10-15 seconds) before triggering DAG
-6. **Restart Airflow** after adding new DAGs
-7. **Check ports** if services won't start (8080, 5432, 8501)
-8. **Trigger DAG manually** first, then schedule will work
+1. Always use Docker on Windows for Airflow
+2. Activate venv before working with Python
+3. Check `docker-compose ps` to ensure all services are running
+4. Use `docker-compose logs -f` to monitor in real-time
+5. Wait for database to initialize (10-15 seconds) before triggering DAG
+6. Restart Airflow after adding new DAGs
+7. Check ports if services won't start (8080, 5432, 8501)
+8. Trigger DAG manually first, then schedule will work
+9. Use verification scripts to check each phase
+10. Screenshots should be 300+ DPI for documentation
 
 ---
 
@@ -543,6 +576,18 @@ docker exec -it batch-etl-airflow airflow dags list-runs --dag-id etl_pipeline
 | Docker Compose | `docker-compose.yml` |
 | Requirements | `requirements.txt` |
 | Environment | `.env` |
+| Blueprint | `docs/blueprint.md` |
+| Cheatsheet | `docs/cheatsheets.md` |
+| Verification Checklist | `docs/verification-checklist.md` |
+| Architecture Diagram Script | `archive/architecture-diagram.py` |
+| Data Flow Diagram Script | `archive/data-flow-diagram.py` |
+| ERD Diagram Script | `archive/erd-diagram.py` |
+| Architecture Diagram | `screenshots/architecture-diagram.png` |
+| Data Flow Diagram | `screenshots/data-flow-diagram.png` |
+| ERD Diagram | `screenshots/erd-diagram.png` |
+| ERD DBML | `docs/diagrams/erd-diagram.dbml` |
+| ERD Drawio | `docs/diagrams/erd-diagram.drawio` |
+| ERD MySQL Workbench | `docs/diagrams/erd-diagram.mwb` |
 
 ---
 
@@ -575,8 +620,10 @@ docker exec -it batch-etl-postgres psql -U admin -d warehouse
 
 # TRIGGER DAG
 docker exec -it batch-etl-airflow airflow dags trigger etl_pipeline
+
+# VERIFY PHASE 7
+python verify-phase-7.py
+
+# RUN ALL VERIFICATIONS
+python run_all_verifications.py
 ```
-
----
-
-**Save this cheat sheet for quick reference!**
