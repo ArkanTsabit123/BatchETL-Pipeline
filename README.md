@@ -8,6 +8,8 @@
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.29.0-red)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
+![Screenshots](https://img.shields.io/badge/screenshots-3%2F19-orange)
+![Verification](https://img.shields.io/badge/verification-84.25%25-yellow)
 
 ---
 
@@ -19,6 +21,7 @@
 - [Technology Stack](#technology-stack)
 - [Data Model Design](#data-model-design)
 - [Project Structure](#project-structure)
+- [Environment Variables](#environment-variables)
 - [Quick Start](#quick-start)
 - [Deployment Guide](#deployment-guide)
 - [Dashboard Features](#dashboard-features)
@@ -27,6 +30,8 @@
 - [Screenshots](#screenshots)
 - [Performance](#performance)
 - [Business Value](#business-value)
+- [Security Considerations](#security-considerations)
+- [Quick Commands Reference](#quick-commands-reference)
 - [Quick Links](#quick-links)
 
 ---
@@ -39,7 +44,7 @@ BatchETL Pipeline is a production-ready data engineering project that demonstrat
 
 - Processes **2.96+ million rows** of NYC Taxi trip data
 - Automated ETL with data cleaning, deduplication, and outlier removal
-- Interactive dashboard with 5 KPIs, 4 charts, and 3 filters
+- Interactive dashboard with 5 KPIs, 4 charts, and 5 filters
 - Containerized deployment with Docker Compose
 - Apache Airflow orchestration with daily scheduling
 
@@ -49,8 +54,8 @@ BatchETL Pipeline is a production-ready data engineering project that demonstrat
 |--------|--------|----------|
 | Pipeline Automation | Daily execution | Yes |
 | Data Quality Validation | 100% | Yes |
-| Execution Time | < 15 seconds | ~10-15 seconds |
-| Dashboard | 5 KPIs + 4 charts | Yes |
+| Execution Time | < 30 seconds | ~15-25 seconds |
+| Dashboard | 5 KPIs + 4 charts + 5 filters | Yes |
 | Data Rows Processed | 100,000+ | 2,869,525 |
 
 ---
@@ -136,17 +141,17 @@ This is a single-table fact model (denormalized) optimized for analytical querie
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
 | `trip_id` | SERIAL | NOT NULL | Surrogate key (Primary Key) |
-| `vendor_id` | SMALLINT | NULL | Vendor code (1 or 2) |
-| `pickup_datetime` | TIMESTAMP | NULL | Trip start time |
-| `dropoff_datetime` | TIMESTAMP | NULL | Trip end time |
-| `passenger_count` | SMALLINT | NULL | Number of passengers |
-| `trip_distance` | REAL | NULL | Distance in miles |
-| `fare_amount` | REAL | NULL | Base fare amount |
-| `total_amount` | REAL | NULL | Total with all fees |
-| `payment_type` | SMALLINT | NULL | Payment method code |
-| `pickup_hour` | SMALLINT | NULL | Hour of pickup (0-23) |
+| `vendor_id` | INTEGER | NULL | Vendor code (1 or 2) |
+| `pickup_datetime` | TIMESTAMP WITHOUT TIME ZONE | NULL | Trip start time |
+| `dropoff_datetime` | TIMESTAMP WITHOUT TIME ZONE | NULL | Trip end time |
+| `passenger_count` | INTEGER | NULL | Number of passengers |
+| `trip_distance` | NUMERIC(10,2) | NULL | Distance in miles |
+| `fare_amount` | NUMERIC(10,2) | NULL | Base fare amount |
+| `total_amount` | NUMERIC(10,2) | NULL | Total with all fees |
+| `payment_type` | INTEGER | NULL | Payment method code |
+| `pickup_hour` | INTEGER | NULL | Hour of pickup (0-23) |
 | `pickup_day` | VARCHAR(20) | NULL | Day name (Monday-Sunday) |
-| `pickup_month` | SMALLINT | NULL | Month (1-12) |
+| `pickup_month` | INTEGER | NULL | Month (1-12) |
 
 ### Indexes
 
@@ -158,6 +163,7 @@ CREATE INDEX idx_trip_distance ON fact_trips(trip_distance);
 CREATE INDEX idx_vendor_id ON fact_trips(vendor_id);
 CREATE INDEX idx_pickup_hour ON fact_trips(pickup_hour);
 CREATE INDEX idx_pickup_month ON fact_trips(pickup_month);
+CREATE INDEX idx_payment_type ON fact_trips(payment_type);
 ```
 
 ### Data Transformations Applied
@@ -169,16 +175,17 @@ CREATE INDEX idx_pickup_month ON fact_trips(pickup_month);
 | 3 | Convert datetime | Feature engineering |
 | 4 | Extract hour, day, month | Time-based analysis |
 | 5 | Filter unrealistic values | Remove outliers |
-| 6 | Select final columns | Warehouse schema |
+| 6 | Validate pickup < dropoff | Data consistency |
+| 7 | Select final columns | Warehouse schema |
 
 ### Data Quality Rules
 
 | Rule | Condition | Action |
 |------|-----------|--------|
-| `trip_distance` | > 0 | Filter |
-| `fare_amount` | > 0 | Filter |
-| `trip_distance` | < 100 miles | Remove outlier |
-| `fare_amount` | < $500 | Remove outlier |
+| `trip_distance` | BETWEEN 0 AND 100 | Filter out invalid |
+| `fare_amount` | BETWEEN 0 AND 500 | Filter out invalid |
+| `passenger_count` | >= 0 | Remove negative |
+| `pickup_datetime` | < dropoff_datetime | Validate trip duration |
 | Critical columns | NOT NULL | Drop row |
 
 ---
@@ -196,6 +203,7 @@ batch-etl/
 ├── docker-compose.yml                   # Multi-container orchestration
 ├── requirements.txt                     # Python dependencies
 ├── .gitignore                           # Git ignore rules
+├── .env                                 # Environment variables
 ├── LICENSE                              # MIT License
 │
 ├── dags/
@@ -230,24 +238,24 @@ batch-etl/
 │   │   ├── erd-diagram.drawio
 │   │   └── erd-diagram.mwb
 │   ├── blueprint.md                     # Technical blueprint
-│   ├── cheatsheets.md                   # Quick reference
+│   ├── cheatsheet.md                    # Quick reference (tunggal)
 │   └── verification-checklist.md        # Testing checklist
 │
 ├── screenshots/
 │   ├── architecture-diagram.png         # Architecture diagram (600 DPI)
 │   ├── data-flow-diagram.png            # Data flow diagram (600 DPI)
 │   ├── erd-diagram.png                  # Entity Relationship Diagram
-│   └── 01-16-*.png                      # Screenshots
+│   └── 01-16-*.png                      # Screenshots (pending)
 │
-├── verify-phase-1.py                    # Phase 1: Setup verification
-├── verify-phase-2.py                    # Phase 2: Docker verification
-├── verify-phase-3.py                    # Phase 3: DAG verification
-├── verify-phase-4.py                    # Phase 4: Pipeline verification
-├── verify-phase-5.py                    # Phase 5: Data verification
-├── verify-phase-6.py                    # Phase 6: Dashboard verification
-├── verify-phase-7.py                    # Phase 7: Screenshots verification
-├── verify-phase-8.py                    # Phase 8: Documentation verification
-├── run_all_verifications.py             # Run all verification scripts
+├── verify-phase-1.py                    # Phase 1: Setup verification (16 checks)
+├── verify-phase-2.py                    # Phase 2: Docker verification (13 checks)
+├── verify-phase-3.py                    # Phase 3: DAG verification (12 checks)
+├── verify-phase-4.py                    # Phase 4: Pipeline verification (13 checks)
+├── verify-phase-5.py                    # Phase 5: Data verification (14 checks)
+├── verify-phase-6.py                    # Phase 6: Dashboard verification (23 checks)
+├── verify-phase-7.py                    # Phase 7: Screenshots verification (19 checks)
+├── verify-phase-8.py                    # Phase 8: Documentation verification (17 checks)
+├── run_all_verifications.py             # Run all verification scripts (127 checks)
 │
 ├── troubleshoot.py                      # Main troubleshooting menu
 ├── troubleshoot_airflow.py              # Airflow troubleshooting
@@ -259,6 +267,31 @@ batch-etl/
 ├── README.md                            # Project documentation
 ├── setup_project.py                     # Project setup script
 └── structure.py                         # Display project structure
+```
+
+---
+
+## Environment Variables
+
+Create a `.env` file in the project root:
+
+```bash
+# .env file
+AIRFLOW_UID=50000
+AIRFLOW_GID=50000
+POSTGRES_USER=admin
+POSTGRES_PASSWORD=admin
+POSTGRES_DB=warehouse
+POSTGRES_PORT=5432
+MYSQL_USER=admin
+MYSQL_PASSWORD=admin
+MYSQL_DATABASE=warehouse
+MYSQL_PORT=3306
+AIRFLOW__CORE__LOAD_EXAMPLES=False
+AIRFLOW__WEBSERVER__SECRET_KEY=your-secret-key-here
+AIRFLOW_CONN_POSTGRES=postgresql://admin:admin@postgres:5432/warehouse
+PYTHONPATH=/opt/airflow
+DATA_PATH=/opt/airflow/data
 ```
 
 ---
@@ -362,9 +395,11 @@ python run_all_verifications.py
 
 | Filter | Type | Options | Default |
 |--------|------|---------|---------|
-| Fare Range | Slider | Min-Max from data | Full range |
-| Distance Range | Slider | Min-Max from data | Full range |
+| Fare Range | Slider | Min-Max from data | [0, 100] |
+| Distance Range | Slider | Min-Max from data | [0, 20] |
 | Day of Week | Multiselect | Monday-Sunday | All days |
+| Payment Type | Selectbox | 1-6 | All types |
+| Vendor ID | Selectbox | 1-2 | All |
 
 ---
 
@@ -375,13 +410,14 @@ python run_all_verifications.py
 | Phase | Name | Checks | Description | Status |
 |-------|------|--------|-------------|--------|
 | 1 | Setup & Environment | 16 | Folder structure, venv, dependencies | ✅ 100% |
-| 2 | Docker & Container Setup | 11 | PostgreSQL, Airflow, Streamlit containers | ✅ 100% |
-| 3 | Airflow DAG Creation | 11 | DAG syntax, tasks, dependencies | ✅ 100% |
-| 4 | Pipeline Execution | 11 | Extract, Transform, Load tasks | ✅ 100% |
-| 5 | PostgreSQL Data Verification | 12 | Schema, indexes, data quality | ✅ 100% |
-| 6 | Dashboard Verification | 19 | KPIs, charts, filters | ✅ 100% |
-| 7 | Screenshots Documentation | 19 | 19 screenshots + 3 diagrams | 🔄 15.79% |
-| 8 | Documentation & Deployment | 15 | README, LICENSE, Git, GitHub | 🔄 86.67% |
+| 2 | Docker & Container Setup | 13 | PostgreSQL, Airflow, Streamlit containers | ✅ 100% |
+| 3 | Airflow DAG Creation | 12 | DAG syntax, tasks, dependencies | ✅ 100% |
+| 4 | Pipeline Execution | 13 | Extract, Transform, Load tasks | ✅ 100% |
+| 5 | PostgreSQL Data Verification | 14 | Schema, indexes, data quality | ✅ 100% |
+| 6 | Dashboard Verification | 23 | KPIs, charts, filters, responsiveness | ⚠️ 91.30% |
+| 7 | Screenshots Documentation | 19 | 19 screenshots + 3 diagrams | ⚠️ 15.79% |
+| 8 | Documentation & Deployment | 17 | README, LICENSE, Git, GitHub | ⚠️ 88.24% |
+| **TOTAL** | **All Phases** | **127** | **Complete verification** | **⚠️ 84.25%** |
 
 ### Run All Verifications
 
@@ -423,7 +459,7 @@ python troubleshoot_network.py
 | Issue | Solution |
 |-------|----------|
 | Docker container not starting | Check Docker Desktop is running, verify ports are available |
-| Airflow DAG not appearing | Wait 30 seconds, restart Airflow container |
+| Airflow DAG not appearing | Wait 30-60 seconds, restart Airflow container |
 | Task stuck in running | Clear task from UI or CLI, retry |
 | Database connection refused | Wait for database to initialize (10-15 seconds) |
 | No data in dashboard | Run ETL scripts or trigger DAG first |
@@ -455,20 +491,20 @@ docker-compose down -v && docker-compose up -d
 
 | # | Filename | Description | Status |
 |---|----------|-------------|--------|
-| 1 | `architecture-diagram.png` | Complete system architecture diagram | ✅ Done |
-| 2 | `data-flow-diagram.png` | Detailed data flow pipeline diagram | ✅ Done |
-| 3 | `erd-diagram.png` | Entity Relationship Diagram for fact_trips | ✅ Done |
+| 1 | `architecture-diagram.png` | Complete system architecture diagram (600 DPI) | ✅ Done |
+| 2 | `data-flow-diagram.png` | Detailed data flow pipeline diagram (600 DPI) | ✅ Done |
+| 3 | `erd-diagram.png` | Entity Relationship Diagram for fact_trips (600 DPI) | ✅ Done |
 
 ### Level 1: Mandatory (8) - ⬜ PENDING
 
 | # | Filename | Description | Status |
 |---|----------|-------------|--------|
-| 4 | `01-folder-structure.png` | Project structure in VS Code | ⬜ Pending |
-| 5 | `02-dataset-downloaded.png` | Raw CSV in `data/raw/` | ⬜ Pending |
-| 6 | `03-airflow-dag-list.png` | DAG list with "Success" status | ⬜ Pending |
-| 7 | `04-airflow-grid-success.png` | Grid view all green | ⬜ Pending |
-| 8 | `05-airflow-tree-success.png` | Tree view confirmation | ⬜ Pending |
-| 9 | `06-postgres-data.png` | `SELECT * FROM fact_trips LIMIT 10` | ⬜ Pending |
+| 4 | `01-folder-structure.png` | Project structure in VS Code | ✅ Done |
+| 5 | `02-dataset-downloaded.png` | Raw CSV in `data/raw/` | ✅ Done |
+| 6 | `03-airflow-dag-list.png` | DAG list with "Success" status | ✅ Done |
+| 7 | `04-airflow-grid-success.png` | Grid view all green | ✅ Done |
+| 8 | `05-airflow-tree-success.png` | Tree view confirmation | ✅ Done |
+| 9 | `06-postgres-data.png` | `SELECT * FROM fact_trips LIMIT 10` | ✅ Done |
 | 10 | `07-dashboard-overview.png` | Full dashboard page | ⬜ Pending |
 | 11 | `08-dashboard-charts.png` | All 4 charts visible | ⬜ Pending |
 
@@ -509,10 +545,10 @@ docker-compose down -v && docker-compose up -d
 
 | Task | Time |
 |------|------|
-| Extract | ~2 seconds |
-| Transform | ~5-8 seconds |
-| Load | ~3-5 seconds |
-| **Total** | **~10-15 seconds** |
+| Extract | ~2-4 seconds |
+| Transform | ~8-12 seconds |
+| Load | ~5-8 seconds |
+| **Total** | **~15-25 seconds** |
 
 ### Container Resource Usage
 
@@ -542,13 +578,107 @@ docker-compose down -v && docker-compose up -d
 
 ---
 
+## Security Considerations
+
+### Default Credentials (Change for Production)
+
+| Service | Username | Password |
+|---------|----------|----------|
+| Airflow UI | admin | admin |
+| PostgreSQL | admin | admin |
+
+### Network Ports
+
+| Port | Service | Exposure |
+|------|---------|----------|
+| 8080 | Airflow UI | Localhost |
+| 5432 | PostgreSQL | Localhost |
+| 8501 | Dashboard | Localhost |
+
+### Security Best Practices
+
+1. **Never expose ports to public internet in production**
+2. **Change all default credentials before production deployment**
+3. **Use environment variables for sensitive data**
+4. **Implement network isolation using Docker networks**
+5. **Regularly update Docker images for security patches**
+
+---
+
+## Quick Commands Reference
+
+```bash
+# START SERVICES
+docker-compose up -d
+
+# STATUS
+docker-compose ps
+
+# LOGS
+docker-compose logs -f
+
+# STOP SERVICES
+docker-compose down
+
+# RESET
+docker-compose down -v && docker-compose up -d
+
+# AIRFLOW UI
+http://localhost:8080 (admin/admin)
+
+# DASHBOARD
+http://localhost:8501
+
+# POSTGRES CONNECT
+docker exec -it batch-etl-postgres psql -U admin -d warehouse
+
+# TRIGGER DAG
+docker exec -it batch-etl-airflow airflow dags trigger etl_pipeline
+
+# LIST DAGS
+docker exec -it batch-etl-airflow airflow dags list
+
+# CHECK DAG RUNS
+docker exec -it batch-etl-airflow airflow dags list-runs --dag-id etl_pipeline
+
+# CLEAR TASKS
+docker exec -it batch-etl-airflow airflow tasks clear -d etl_pipeline
+
+# CHECK DATA
+docker exec -it batch-etl-postgres psql -U admin -d warehouse -c "SELECT COUNT(*) FROM fact_trips;"
+
+# VIEW AIRFLOW LOGS
+docker-compose logs airflow -f
+
+# RUN SCRIPTS MANUALLY
+python scripts/extract.py && python scripts/transform.py && python scripts/load.py
+
+# RUN VERIFICATIONS
+python run_all_verifications.py
+
+# RUN TROUBLESHOOTING
+python troubleshoot.py
+
+# DOCKER CLEANUP
+docker system prune -f
+
+# NETWORK INFO
+docker network inspect batch-etl_default
+
+# FULL RESET
+docker-compose down -v && docker-compose up -d
+```
+
+---
+
 ## Quick Links
 
 | Resource | URL |
 |----------|-----|
 | **Airflow UI** | http://localhost:8080 |
 | **Dashboard** | http://localhost:8501 |
-| **NYC Taxi Data** | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
+| **NYC Taxi Data (Yellow)** | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
+| **NYC Taxi Data (Green)** | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
 | **Airflow Docs** | https://airflow.apache.org/docs/ |
 | **PostgreSQL Docs** | https://www.postgresql.org/docs/ |
 | **Streamlit Docs** | https://docs.streamlit.io/ |
@@ -574,4 +704,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 - **Project Maintainer**: Arkan Tsabit
 - **GitHub**: https://github.com/ArkanTsabit123/BatchETL-Pipeline
-

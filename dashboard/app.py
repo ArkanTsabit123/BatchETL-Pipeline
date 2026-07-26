@@ -1,4 +1,5 @@
 # dashboard/app.py
+
 """
 NYC Taxi Analytics Dashboard.
 
@@ -7,40 +8,45 @@ Features KPI cards, interactive charts, and filters.
 """
 
 import calendar
-import streamlit as st
+from sqlalchemy import create_engine
 import pandas as pd
 import plotly.express as px
-from sqlalchemy import create_engine
+import streamlit as st
 
 
 # Constants
 DATABASE_URL = "postgresql+psycopg2://admin:admin@postgres:5432/warehouse"
 PAGE_TITLE = "NYC Taxi Analytics Dashboard"
-PAGE_ICON = "🚕"
 LAYOUT = "wide"
 CACHE_TTL = 300
 SAMPLE_SIZE = 1000
+DATA_LIMIT = 100000
+FARE_BINS = 50
 
 
 def configure_page() -> None:
     """Set Streamlit page configuration."""
     st.set_page_config(
         page_title=PAGE_TITLE,
-        page_icon=PAGE_ICON,
         layout=LAYOUT,
     )
 
 
 @st.cache_resource
 def get_database_engine():
-    """Create and return SQLAlchemy database engine."""
+    """
+    Create and return SQLAlchemy database engine.
+
+    Returns:
+        Engine: SQLAlchemy engine instance.
+    """
     return create_engine(DATABASE_URL)
 
 
 @st.cache_data(ttl=CACHE_TTL)
-def load_trip_data():
+def load_trip_data() -> pd.DataFrame:
     """
-    Load trip data from PostgreSQL.
+    Load trip data from PostgreSQL with row limit for performance.
 
     Returns:
         DataFrame: Trip data from fact_trips table.
@@ -48,14 +54,22 @@ def load_trip_data():
     Raises:
         Exception: If database connection fails.
     """
-    engine = get_database_engine()
-    query = "SELECT * FROM fact_trips"
-    return pd.read_sql(query, engine)
+    try:
+        engine = get_database_engine()
+        query = f"""
+            SELECT *
+            FROM fact_trips
+            ORDER BY trip_id
+            LIMIT {DATA_LIMIT}
+        """
+        return pd.read_sql(query, engine)
+    except Exception as e:
+        raise Exception(f"Database connection failed: {str(e)}")
 
 
 def render_header() -> None:
     """Display dashboard header."""
-    st.title(f"{PAGE_ICON} {PAGE_TITLE}")
+    st.title(PAGE_TITLE)
     st.markdown("### Real-time analytics from NYC Taxi Trip Data")
 
 
@@ -78,6 +92,7 @@ def get_filters(dataframe: pd.DataFrame) -> dict:
         min_value=fare_min,
         max_value=fare_max,
         value=(fare_min, fare_max),
+        step=1.0,
     )
 
     dist_min = float(dataframe["trip_distance"].min())
@@ -87,6 +102,7 @@ def get_filters(dataframe: pd.DataFrame) -> dict:
         min_value=dist_min,
         max_value=dist_max,
         value=(dist_min, dist_max),
+        step=0.5,
     )
 
     days = list(calendar.day_name)
@@ -96,10 +112,30 @@ def get_filters(dataframe: pd.DataFrame) -> dict:
         default=days,
     )
 
+    payment_types = sorted(dataframe["payment_type"].dropna().unique())
+    payment_options = ["All"] + [int(p) for p in payment_types]
+    selected_payment = st.sidebar.selectbox(
+        "Payment Type",
+        options=payment_options,
+        index=0,
+        format_func=lambda x: "All" if x == "All" else f"Type {x}",
+    )
+
+    vendor_ids = sorted(dataframe["vendor_id"].dropna().unique())
+    vendor_options = ["All"] + [int(v) for v in vendor_ids]
+    selected_vendor = st.sidebar.selectbox(
+        "Vendor ID",
+        options=vendor_options,
+        index=0,
+        format_func=lambda x: "All" if x == "All" else f"Vendor {x}",
+    )
+
     return {
         "fare_range": fare_range,
         "distance_range": distance_range,
         "selected_days": selected_days,
+        "selected_payment": selected_payment,
+        "selected_vendor": selected_vendor,
     }
 
 
@@ -114,13 +150,21 @@ def apply_filters(dataframe: pd.DataFrame, filters: dict) -> pd.DataFrame:
     Returns:
         DataFrame: Filtered data.
     """
-    return dataframe[
+    df = dataframe[
         (dataframe["fare_amount"] >= filters["fare_range"][0])
         & (dataframe["fare_amount"] <= filters["fare_range"][1])
         & (dataframe["trip_distance"] >= filters["distance_range"][0])
         & (dataframe["trip_distance"] <= filters["distance_range"][1])
         & (dataframe["pickup_day"].isin(filters["selected_days"]))
     ]
+
+    if filters["selected_payment"] != "All":
+        df = df[df["payment_type"] == filters["selected_payment"]]
+
+    if filters["selected_vendor"] != "All":
+        df = df[df["vendor_id"] == filters["selected_vendor"]]
+
+    return df
 
 
 def display_filtered_count(dataframe: pd.DataFrame) -> None:
@@ -136,19 +180,22 @@ def render_kpi_cards(dataframe: pd.DataFrame) -> None:
     Args:
         dataframe: Filtered data for calculations.
     """
-    columns = st.columns(5)
+    col1, col2, col3, col4, col5 = st.columns(5)
 
-    metrics = [
-        ("Total Trips", f"{len(dataframe):,}", ""),
-        ("Average Fare", f"${dataframe['fare_amount'].mean():.2f}", ""),
-        ("Avg Distance", f"{dataframe['trip_distance'].mean():.2f} miles", ""),
-        ("Avg Passengers", f"{dataframe['passenger_count'].mean():.1f}", ""),
-        ("Total Revenue", f"${dataframe['total_amount'].sum():,.2f}", ""),
-    ]
+    with col1:
+        st.metric("Total Trips", f"{len(dataframe):,}")
 
-    for column, (label, value, _) in zip(columns, metrics):
-        with column:
-            st.metric(label, value)
+    with col2:
+        st.metric("Average Fare", f"${dataframe['fare_amount'].mean():.2f}")
+
+    with col3:
+        st.metric("Avg Distance", f"{dataframe['trip_distance'].mean():.2f} miles")
+
+    with col4:
+        st.metric("Avg Passengers", f"{dataframe['passenger_count'].mean():.1f}")
+
+    with col5:
+        st.metric("Total Revenue", f"${dataframe['total_amount'].sum():,.2f}")
 
 
 def render_revenue_by_day(dataframe: pd.DataFrame) -> None:
@@ -204,7 +251,7 @@ def render_fare_distribution(dataframe: pd.DataFrame) -> None:
     fig = px.histogram(
         dataframe,
         x="fare_amount",
-        nbins=50,
+        nbins=FARE_BINS,
         title="Distribution of Fare Amounts",
         color_discrete_sequence=["#636EFA"],
         labels={"fare_amount": "Fare ($)"},
@@ -242,7 +289,9 @@ def render_raw_data(dataframe: pd.DataFrame) -> None:
 def render_footer() -> None:
     """Display dashboard footer."""
     st.markdown("---")
-    st.markdown("*Data source: NYC Taxi & Limousine Commission | Updated in real-time*")
+    st.markdown(
+        "Data source: NYC Taxi & Limousine Commission | Updated in real-time"
+    )
 
 
 def handle_data_error(error: Exception) -> None:
@@ -264,11 +313,15 @@ def main() -> None:
 
     try:
         data = load_trip_data()
+
         if len(data) == 0:
-            st.warning("No data found in database. Please run the ETL pipeline first.")
-            st.stop()
+            st.warning("No data found. Please run the ETL pipeline first.")
+            return
+
     except Exception as error:
-        handle_data_error(error)
+        st.error(f"Error loading data: {str(error)}")
+        st.info("Make sure PostgreSQL is running and data has been loaded.")
+        return
 
     filters = get_filters(data)
     filtered_data = apply_filters(data, filters)

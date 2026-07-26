@@ -1,4 +1,3 @@
-```markdown
 # BATCHETL PIPELINE - TECHNICAL BLUEPRINT
 
 ## Document Information
@@ -28,7 +27,7 @@
 
 - Fully automated daily pipeline execution
 - 100% data quality validation (duplicate removal, outlier filtering)
-- < 15 seconds pipeline execution time (2.96M+ rows)
+- < 30 seconds pipeline execution time (2.96M+ rows)
 - Interactive dashboard with 5 KPIs + 4 chart types
 
 ---
@@ -50,8 +49,9 @@
 │  │  ┌─────────────────────────────────────────────────────────────┐   │    │
 │  │  │   dags/etl_pipeline.py                                      │   │    │
 │  │  │   - DAG ID: etl_pipeline                                   │   │    │
-│  │  │   - Schedule: @daily                                       │   │    │
+│  │  │   - Schedule: 0 0 * * * (daily at midnight)               │   │    │
 │  │  │   - Retries: 1                                             │   │    │
+│  │  │   - Catchup: False                                         │   │    │
 │  │  └─────────────────────────────────────────────────────────────┘   │    │
 │  └──────────────────────────────┬──────────────────────────────────────┘    │
 │                                 │                                           │
@@ -84,7 +84,7 @@
 │  │  │   dashboard/app.py                                          │   │    │
 │  │  │   - 5 KPIs (Total Trips, Avg Fare, Avg Distance, etc.)     │   │    │
 │  │  │   - 4 charts (Revenue by Day, Trips per Hour, etc.)        │   │    │
-│  │  │   - 3 filters (Fare Range, Distance Range, Day of Week)    │   │    │
+│  │  │   - 5 filters (Fare, Distance, Day, Payment, Vendor)       │   │    │
 │  │  └─────────────────────────────────────────────────────────────┘   │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                             │
@@ -121,7 +121,7 @@
 │  │  Input:  data/raw/taxi_data.csv (2.96M rows)               │   │
 │  │  Action: pd.read_csv() → CSV to DataFrame                  │   │
 │  │  Output: data/staging/taxi_raw.csv                         │   │
-│  │  Time:   ~2 seconds                                        │   │
+│  │  Time:   ~2-4 seconds                                      │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 │                              │                                      │
 │                              ▼                                      │
@@ -133,10 +133,11 @@
 │  │   2. Drop nulls on critical columns                        │   │
 │  │   3. Convert datetime (pickup, dropoff)                    │   │
 │  │   4. Feature engineering (hour, day, month)                │   │
-│  │   5. Filter outliers (distance < 100, fare < 500)          │   │
-│  │   6. Select 11 columns for warehouse                       │   │
+│  │   5. Filter outliers (distance: 0-100, fare: 0-500)       │   │
+│  │   6. Validate pickup < dropoff                             │   │
+│  │   7. Select 11 columns for warehouse                       │   │
 │  │  Output: data/staging/taxi_clean.csv (2.87M rows)          │   │
-│  │  Time:   ~5-8 seconds                                      │   │
+│  │  Time:   ~8-12 seconds                                     │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 │                              │                                      │
 │                              ▼                                      │
@@ -145,7 +146,7 @@
 │  │  Input:  data/staging/taxi_clean.csv                       │   │
 │  │  Action: df.to_sql('fact_trips', engine, if_exists='append')│   │
 │  │  Output: PostgreSQL/MySQL fact_trips table                 │   │
-│  │  Time:   ~3-5 seconds                                      │   │
+│  │  Time:   ~5-8 seconds                                      │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 │                              │                                      │
 │                              ▼                                      │
@@ -156,7 +157,8 @@
 │  │          Avg Passengers, Total Revenue                     │   │
 │  │  Charts: Revenue by Day, Trips per Hour,                  │   │
 │  │          Fare Distribution, Distance vs Fare               │   │
-│  │  Filters: Fare Range, Distance Range, Day of Week         │   │
+│  │  Filters: Fare Range, Distance Range, Day of Week,        │   │
+│  │           Payment Type, Vendor ID                          │   │
 │  │  Time:   < 200ms per query                                │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 │                                                                     │
@@ -199,17 +201,17 @@
 │  │                        fact_trips                                   │    │
 │  │  ┌─────────────────────────────────────────────────────────────┐   │    │
 │  │  │  trip_id           SERIAL         PRIMARY KEY               │   │    │
-│  │  │  vendor_id         SMALLINT                                 │   │    │
-│  │  │  pickup_datetime   TIMESTAMP                                │   │    │
-│  │  │  dropoff_datetime  TIMESTAMP                                │   │    │
-│  │  │  passenger_count   SMALLINT                                 │   │    │
-│  │  │  trip_distance     REAL                                     │   │    │
-│  │  │  fare_amount       REAL                                     │   │    │
-│  │  │  total_amount      REAL                                     │   │    │
-│  │  │  payment_type      SMALLINT                                 │   │    │
-│  │  │  pickup_hour       SMALLINT                                 │   │    │
+│  │  │  vendor_id         INTEGER                                  │   │    │
+│  │  │  pickup_datetime   TIMESTAMP WITHOUT TIME ZONE              │   │    │
+│  │  │  dropoff_datetime  TIMESTAMP WITHOUT TIME ZONE              │   │    │
+│  │  │  passenger_count   INTEGER                                  │   │    │
+│  │  │  trip_distance     NUMERIC(10,2)                            │   │    │
+│  │  │  fare_amount       NUMERIC(10,2)                            │   │    │
+│  │  │  total_amount      NUMERIC(10,2)                            │   │    │
+│  │  │  payment_type      INTEGER                                  │   │    │
+│  │  │  pickup_hour       INTEGER                                  │   │    │
 │  │  │  pickup_day        VARCHAR(20)                              │   │    │
-│  │  │  pickup_month      SMALLINT                                 │   │    │
+│  │  │  pickup_month      INTEGER                                  │   │    │
 │  │  └─────────────────────────────────────────────────────────────┘   │    │
 │  │                                                                     │    │
 │  │  Indexes:                                                           │    │
@@ -220,6 +222,7 @@
 │  │  │  idx_trip_distance    →  Faster distance-based queries     │   │    │
 │  │  │  idx_vendor_id        →  Faster vendor filtering           │   │    │
 │  │  │  idx_pickup_hour      →  Faster hour-based queries         │   │    │
+│  │  │  idx_payment_type     →  Faster payment type filtering     │   │    │
 │  │  └─────────────────────────────────────────────────────────────┘   │    │
 │  │                                                                     │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
@@ -230,10 +233,10 @@
 │  │  ┌─────────────────────────────────────────────────────────────┐   │    │
 │  │  │  Rule                      Condition        Action          │   │    │
 │  │  ├─────────────────────────────────────────────────────────────┤   │    │
-│  │  │  trip_distance             > 0              Filter          │   │    │
-│  │  │  fare_amount               > 0              Filter          │   │    │
-│  │  │  trip_distance             < 100 miles      Remove Outlier  │   │    │
-│  │  │  fare_amount               < $500           Remove Outlier  │   │    │
+│  │  │  trip_distance             BETWEEN 0-100     Filter         │   │    │
+│  │  │  fare_amount               BETWEEN 0-500     Filter         │   │    │
+│  │  │  passenger_count           >= 0              Filter         │   │    │
+│  │  │  pickup_datetime           < dropoff         Validate       │   │    │
 │  │  │  Critical columns          NOT NULL         Drop Row        │   │    │
 │  │  └─────────────────────────────────────────────────────────────┘   │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
@@ -282,17 +285,17 @@ This is a single-table fact model (denormalized) optimized for analytical querie
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
 | `trip_id` | SERIAL | NOT NULL | Surrogate key (PK) |
-| `vendor_id` | SMALLINT | NULL | Vendor code (1/2) |
-| `pickup_datetime` | TIMESTAMP | NULL | Trip start time |
-| `dropoff_datetime` | TIMESTAMP | NULL | Trip end time |
-| `passenger_count` | SMALLINT | NULL | Number of passengers |
-| `trip_distance` | REAL | NULL | Distance in miles |
-| `fare_amount` | REAL | NULL | Base fare amount |
-| `total_amount` | REAL | NULL | Total with all fees |
-| `payment_type` | SMALLINT | NULL | Payment method code |
-| `pickup_hour` | SMALLINT | NULL | Hour of pickup (0-23) |
+| `vendor_id` | INTEGER | NULL | Vendor code (1/2) |
+| `pickup_datetime` | TIMESTAMP WITHOUT TIME ZONE | NULL | Trip start time |
+| `dropoff_datetime` | TIMESTAMP WITHOUT TIME ZONE | NULL | Trip end time |
+| `passenger_count` | INTEGER | NULL | Number of passengers |
+| `trip_distance` | NUMERIC(10,2) | NULL | Distance in miles |
+| `fare_amount` | NUMERIC(10,2) | NULL | Base fare amount |
+| `total_amount` | NUMERIC(10,2) | NULL | Total with all fees |
+| `payment_type` | INTEGER | NULL | Payment method code |
+| `pickup_hour` | INTEGER | NULL | Hour of pickup (0-23) |
 | `pickup_day` | VARCHAR(20) | NULL | Day name (Monday-Sunday) |
-| `pickup_month` | SMALLINT | NULL | Month (1-12) |
+| `pickup_month` | INTEGER | NULL | Month (1-12) |
 
 ### Indexes
 
@@ -303,6 +306,7 @@ CREATE INDEX idx_fare_amount ON fact_trips(fare_amount);
 CREATE INDEX idx_trip_distance ON fact_trips(trip_distance);
 CREATE INDEX idx_vendor_id ON fact_trips(vendor_id);
 CREATE INDEX idx_pickup_hour ON fact_trips(pickup_hour);
+CREATE INDEX idx_payment_type ON fact_trips(payment_type);
 ```
 
 ### Data Transformations Applied
@@ -314,16 +318,17 @@ CREATE INDEX idx_pickup_hour ON fact_trips(pickup_hour);
 | 3 | Convert datetime | Feature engineering |
 | 4 | Extract hour, day, month | Time-based analysis |
 | 5 | Filter unrealistic values | Remove outliers |
-| 6 | Select final columns | Warehouse schema |
+| 6 | Validate pickup < dropoff | Data consistency |
+| 7 | Select final columns | Warehouse schema |
 
 ### Data Quality Rules
 
 | Rule | Condition | Action |
 |------|-----------|--------|
-| `trip_distance` | > 0 | Filter |
-| `fare_amount` | > 0 | Filter |
-| `trip_distance` | < 100 miles | Remove outlier |
-| `fare_amount` | < $500 | Remove outlier |
+| `trip_distance` | BETWEEN 0 AND 100 | Filter out invalid |
+| `fare_amount` | BETWEEN 0 AND 500 | Filter out invalid |
+| `passenger_count` | >= 0 | Remove negative |
+| `pickup_datetime` | < dropoff_datetime | Valid trip duration |
 | Critical columns | NOT NULL | Drop row |
 
 ---
@@ -369,8 +374,8 @@ batch-etl/
 │   │   ├── erd-diagram.drawio
 │   │   └── erd-diagram.mwb
 │   ├── blueprint.md                     # Technical blueprint
-│   ├── cheatsheets.md                   # Quick reference
-│   └── verification checklist.md        # Testing checklist
+│   ├── cheatsheet.md                    # Quick reference
+│   └── verification-checklist.md        # Testing checklist
 │
 ├── screenshots/                         # Screenshot images
 │   ├── architecture-diagram.png         # Architecture diagram (600 DPI)
@@ -395,8 +400,8 @@ batch-etl/
 │
 ├── README.md                            # Project documentation
 ├── blueprint.md                         # This file
-├── cheatsheets.md                       # Quick reference
-└── verification checklist.md            # Testing checklist
+├── cheatsheet.md                        # Quick reference
+└── verification-checklist.md            # Testing checklist
 ```
 
 ---
@@ -420,6 +425,7 @@ batch-etl/
 | Airflow | `./dags` | `/opt/airflow/dags` |
 | Airflow | `./scripts` | `/opt/airflow/scripts` |
 | Airflow | `./data` | `/opt/airflow/data` |
+| Airflow | `./warehouse` | `/opt/airflow/warehouse` |
 | Streamlit | `./data` | `/app/data` |
 
 ### Environment Variables
@@ -430,7 +436,11 @@ batch-etl/
 | PostgreSQL | POSTGRES_PASSWORD | admin |
 | PostgreSQL | POSTGRES_DB | warehouse |
 | Airflow | AIRFLOW__CORE__EXECUTOR | SequentialExecutor |
-| Airflow | AIRFLOW_WEBSERVER_DEFAULT_UI_TIMEZONE | Asia/Jakarta |
+| Airflow | AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE | Asia/Jakarta |
+| Airflow | AIRFLOW__WEBSERVER__SECRET_KEY | your-secret-key-here |
+| Airflow | AIRFLOW_CONN_POSTGRES | postgresql://admin:admin@postgres:5432/warehouse |
+| Airflow | PYTHONPATH | /opt/airflow |
+| Airflow | DATA_PATH | /opt/airflow/data |
 
 ### docker-compose.yml
 
@@ -451,7 +461,8 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - batch-etl-network
+      batch-etl-network:
+        ipv4_address: 172.28.0.10
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d warehouse"]
       interval: 10s
@@ -464,6 +475,10 @@ services:
     environment:
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: Asia/Jakarta
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'your-secret-key-here'
+      AIRFLOW_CONN_POSTGRES: 'postgresql://admin:admin@postgres:5432/warehouse'
+      PYTHONPATH: '/opt/airflow'
+      DATA_PATH: '/opt/airflow/data'
       _AIRFLOW_WWW_USER_CREATE: "true"
       _AIRFLOW_WWW_USER_USERNAME: admin
       _AIRFLOW_WWW_USER_PASSWORD: admin
@@ -471,11 +486,21 @@ services:
       - ./dags:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
       - ./data:/opt/airflow/data
+      - ./warehouse:/opt/airflow/warehouse
     ports:
       - "8080:8080"
     networks:
-      - batch-etl-network
+      batch-etl-network:
+        ipv4_address: 172.28.0.20
     command: standalone
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   streamlit:
     build:
@@ -486,11 +511,17 @@ services:
       - ./data:/app/data
     ports:
       - "8501:8501"
+    networks:
+      batch-etl-network:
+        ipv4_address: 172.28.0.30
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - batch-etl-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
 volumes:
   postgres_data:
@@ -498,6 +529,9 @@ volumes:
 networks:
   batch-etl-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
 ```
 
 ---
@@ -520,7 +554,7 @@ from transform import transform_data
 from load import load_data
 
 DAG_ID = 'etl_pipeline'
-SCHEDULE_INTERVAL = '@daily'
+SCHEDULE_INTERVAL = '0 0 * * *'  # Daily at midnight
 START_DATE = datetime(2026, 7, 1)
 CATCHUP = False
 RETRIES = 1
@@ -536,34 +570,32 @@ default_args = {
     'retry_delay': RETRY_DELAY,
 }
 
-dag = DAG(
-    DAG_ID,
+with DAG(
+    dag_id=DAG_ID,
     default_args=default_args,
     description='Extract, Transform, Load NYC Taxi Data',
     schedule_interval=SCHEDULE_INTERVAL,
     catchup=CATCHUP,
     tags=['etl', 'batch', 'taxi', 'nyc'],
-)
+    max_active_runs=1,
+) as dag:
 
-extract_task = PythonOperator(
-    task_id='extract_data',
-    python_callable=extract_data,
-    dag=dag,
-)
+    extract_task = PythonOperator(
+        task_id='extract_data',
+        python_callable=extract_data,
+    )
 
-transform_task = PythonOperator(
-    task_id='transform_data',
-    python_callable=transform_data,
-    dag=dag,
-)
+    transform_task = PythonOperator(
+        task_id='transform_data',
+        python_callable=transform_data,
+    )
 
-load_task = PythonOperator(
-    task_id='load_data',
-    python_callable=load_data,
-    dag=dag,
-)
+    load_task = PythonOperator(
+        task_id='load_data',
+        python_callable=load_data,
+    )
 
-extract_task >> transform_task >> load_task
+    extract_task >> transform_task >> load_task
 ```
 
 ### Pipeline Phases
@@ -601,9 +633,11 @@ extract_task >> transform_task >> load_task
 
 | Filter | Type | Options | Default |
 |--------|------|---------|---------|
-| Fare Range | Slider | Min-Max from data | Full range |
-| Distance Range | Slider | Min-Max from data | Full range |
+| Fare Range | Slider | Min-Max from data | [0, 100] |
+| Distance Range | Slider | Min-Max from data | [0, 20] |
 | Day of Week | Multiselect | Monday-Sunday | All days |
+| Payment Type | Selectbox | 1-6 | All types |
+| Vendor ID | Selectbox | 1-2 | All |
 
 ### Performance Optimization
 
@@ -674,10 +708,10 @@ extract_task >> transform_task >> load_task
 
 | Task | Time |
 |------|------|
-| Extract | ~2 seconds |
-| Transform | ~5-8 seconds |
-| Load | ~3-5 seconds |
-| **Total** | **~10-15 seconds** |
+| Extract | ~2-4 seconds |
+| Transform | ~8-12 seconds |
+| Load | ~5-8 seconds |
+| **Total** | **~15-25 seconds** |
 
 ### Container Resource Usage
 
@@ -741,7 +775,7 @@ extract_task >> transform_task >> load_task
 | Issue | Solution |
 |-------|----------|
 | Docker container not starting | Check Docker Desktop is running, verify ports are available |
-| Airflow DAG not appearing | Wait 30 seconds, restart Airflow container |
+| Airflow DAG not appearing | Wait 30-60 seconds, restart Airflow container |
 | Task stuck in running | Clear task from UI or CLI, retry |
 | Database connection refused | Wait for database to initialize (10-15 seconds) |
 | No data in dashboard | Trigger DAG first, verify data loaded |
@@ -788,11 +822,10 @@ docker-compose down -v && docker-compose up -d
 |----------|-----|
 | **Airflow UI** | http://localhost:8080 |
 | **Dashboard** | http://localhost:8501 |
-| **NYC Taxi Data** | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
+| **NYC Taxi Data (Yellow)** | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
+| **NYC Taxi Data (Green)** | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
 | **Airflow Docs** | https://airflow.apache.org/docs/ |
 | **PostgreSQL Docs** | https://www.postgresql.org/docs/ |
 | **Streamlit Docs** | https://docs.streamlit.io/ |
 | **Plotly Docs** | https://plotly.com/python/ |
 | **Docker Docs** | https://docs.docker.com/ |
-
-```
