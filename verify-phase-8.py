@@ -309,7 +309,7 @@ class Phase8Verifier(PhaseVerifier):
             return False
 
         try:
-            with open(readme_path, 'r') as f:
+            with open(readme_path, 'r', encoding='utf-8') as f:
                 content = f.read()
 
             required_sections = [

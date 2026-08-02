@@ -100,13 +100,13 @@ docker system prune -f
 docker network ls
 
 # Inspect network
-docker network inspect batch-etl_default
+docker network inspect batchetlpipeline_batch-etl-network
 
 # Connect container to network
-docker network connect batch-etl_default container_name
+docker network connect batchetlpipeline_batch-etl-network container_name
 
 # Disconnect container from network
-docker network disconnect batch-etl_default container_name
+docker network disconnect batchetlpipeline_batch-etl-network container_name
 ```
 
 ### Docker URLs
@@ -429,6 +429,110 @@ docker exec -it batch-etl-postgres psql -U admin -d warehouse -c "SELECT * FROM 
 
 ---
 
+## Dashboard Configuration
+
+### Mengubah Jumlah Data yang Ditampilkan
+
+Dashboard secara default menampilkan **100,000 baris** data untuk performa cepat. Untuk menampilkan **SEMUA data** (19+ juta rows), ubah `DATA_LIMIT` di `dashboard/app.py`:
+
+```python
+# dashboard/app.py - Baris ~25
+
+# Untuk 100,000 baris (default - cepat)
+DATA_LIMIT = 100000
+
+# Untuk SEMUA data (lengkap tapi lambat)
+DATA_LIMIT = None
+
+# Untuk jumlah kustom (misal 500,000)
+DATA_LIMIT = 500000
+```
+
+### Perbandingan Mode
+
+| Mode | `DATA_LIMIT` | Kecepatan | Akurasi | Penggunaan |
+|------|--------------|-----------|---------|------------|
+| **Default** | `100000` | ⚡ Sangat Cepat | ❌ Sample saja | Demo, testing, screenshot |
+| **Full Data** | `None` | 🐌 Lambat (30-60s) | ✅ 100% akurat | Analisis serius |
+| **Kustom** | `500000` | ⚡ Cukup Cepat | ⚠️ Sebagian | Balance performa & akurasi |
+
+### Query yang Dihasilkan
+
+```python
+# Fungsi load_trip_data() akan menghasilkan query:
+if DATA_LIMIT:
+    query = f"SELECT * FROM fact_trips ORDER BY trip_id LIMIT {DATA_LIMIT}"
+else:
+    query = "SELECT * FROM fact_trips ORDER BY trip_id"  # Tanpa LIMIT
+```
+
+### Setelah Ubah DATA_LIMIT
+
+**Jika pakai Docker:**
+```bash
+# Rebuild container
+docker-compose stop streamlit
+docker-compose rm -f streamlit
+docker-compose build --no-cache streamlit
+docker-compose up -d streamlit
+
+# Cek log
+docker logs batch-etl-streamlit -f
+```
+
+**Jika pakai Local:**
+```bash
+# Stop (Ctrl+C), lalu jalankan ulang
+streamlit run dashboard/app.py
+```
+
+### Troubleshooting: Error "LIMIT None"
+
+Jika muncul error:
+```
+psycopg2.errors.UndefinedColumn: column "none" does not exist
+LINE 5: LIMIT None
+```
+
+**Penyebab:** `DATA_LIMIT = None` menghasilkan `LIMIT None` di SQL (tidak valid).
+
+**Solusi:** Gunakan kode berikut di `dashboard/app.py`:
+
+```python
+@st.cache_data(ttl=CACHE_TTL)
+def load_trip_data() -> pd.DataFrame:
+    try:
+        engine = get_database_engine()
+        
+        if DATA_LIMIT:
+            query = f"""
+                SELECT *
+                FROM fact_trips
+                ORDER BY trip_id
+                LIMIT {DATA_LIMIT}
+            """
+        else:
+            query = """
+                SELECT *
+                FROM fact_trips
+                ORDER BY trip_id
+            """
+        
+        return pd.read_sql(query, engine)
+    except Exception as e:
+        raise Exception(f"Database connection failed: {str(e)}")
+```
+
+### Tips Performa
+
+| Data Size | Waktu Load | RAM yang Dibutuhkan |
+|-----------|------------|---------------------|
+| 100,000 rows | ~2-5 detik | ~200 MB |
+| 1,000,000 rows | ~10-15 detik | ~800 MB |
+| 19,217,150 rows | ~30-60 detik | ~2-3 GB |
+
+---
+
 ## Project Structure Quick Reference
 
 | Folder | Content |
@@ -440,8 +544,8 @@ docker exec -it batch-etl-postgres psql -U admin -d warehouse -c "SELECT * FROM 
 | `data/staging/` | Intermediate files (taxi_raw.csv, taxi_clean.csv) |
 | `warehouse/` | Database initialization (init.sql) |
 | `dashboard/` | Streamlit app (app.py) + Dockerfile |
-| `screenshots/` | Documentation screenshots (19 images) |
-| `docs/` | Documentation files (blueprint, cheatsheets, checklist) |
+| `screenshots/` | Documentation screenshots (19 images) - ✅ COMPLETED |
+| `docs/` | Documentation files (blueprint, cheatsheet, checklist) |
 | `docs/diagrams/` | Diagram source files (PDF, XML, DBML, drawio, MWB) |
 
 ---
@@ -723,7 +827,7 @@ rm -rf venv __pycache__ .pytest_cache
 | Requirements | `requirements.txt` |
 | Environment | `.env` |
 | Blueprint | `docs/blueprint.md` |
-| Cheatsheet | `docs/cheatsheets.md` |
+| Cheatsheet | `docs/cheatsheet.md` |
 | Verification Checklist | `docs/verification-checklist.md` |
 | Architecture Diagram Script | `archive/architecture-diagram.py` |
 | Data Flow Diagram Script | `archive/data-flow-diagram.py` |
@@ -782,9 +886,6 @@ docker-compose logs airflow -f
 # RUN SCRIPTS MANUALLY
 python scripts/extract.py && python scripts/transform.py && python scripts/load.py
 
-# VERIFY PHASE 7
-python verify-phase-7.py
-
 # RUN ALL VERIFICATIONS
 python run_all_verifications.py
 
@@ -792,7 +893,7 @@ python run_all_verifications.py
 docker system prune -f
 
 # NETWORK INFO
-docker network inspect batch-etl_default
+docker network inspect batchetlpipeline_batch-etl-network
 ```
 
 ---

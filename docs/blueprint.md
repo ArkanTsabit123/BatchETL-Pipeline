@@ -5,7 +5,7 @@
 | Property | Value |
 |----------|-------|
 | **Version** | 1.0.0 |
-| **Last Updated** | 2026-07-25 |
+| **Last Updated** | 2026-08-02 |
 | **Status** | Production Ready |
 | **Orchestration** | Apache Airflow 2.7.3 |
 | **Database** | PostgreSQL 15 / MySQL 8.0 |
@@ -445,8 +445,6 @@ batch-etl/
 ### docker-compose.yml
 
 ```yaml
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15
@@ -651,7 +649,7 @@ with DAG(
 
 ## Screenshots Documentation
 
-### Architecture Diagrams (3) - COMPLETED
+### Architecture Diagrams (3) - ✅ COMPLETED
 
 | # | Filename | Description | Status |
 |---|----------|-------------|--------|
@@ -659,36 +657,36 @@ with DAG(
 | 2 | `data-flow-diagram.png` | Detailed data flow pipeline | ✅ Done |
 | 3 | `erd-diagram.png` | Entity Relationship Diagram | ✅ Done |
 
-### Level 1: Mandatory (8 screenshots)
+### Level 1: Mandatory (8 screenshots) - ✅ COMPLETED
 
 | # | Filename | Description | Status |
 |---|----------|-------------|--------|
-| 4 | `01-folder-structure.png` | Project structure in VS Code | ⬜ Pending |
-| 5 | `02-dataset-downloaded.png` | Raw CSV in `data/raw/` | ⬜ Pending |
-| 6 | `03-airflow-dag-list.png` | DAG list with "Success" status | ⬜ Pending |
-| 7 | `04-airflow-grid-success.png` | Grid view all green | ⬜ Pending |
-| 8 | `05-airflow-tree-success.png` | Tree view confirmation | ⬜ Pending |
-| 9 | `06-postgres-data.png` | `SELECT * FROM fact_trips LIMIT 10` | ⬜ Pending |
-| 10 | `07-dashboard-overview.png` | Full dashboard page | ⬜ Pending |
-| 11 | `08-dashboard-charts.png` | All 4 charts visible | ⬜ Pending |
+| 4 | `01-folder-structure.png` | Project structure in VS Code | ✅ Done |
+| 5 | `02-dataset-downloaded.png` | Raw CSV in `data/raw/` | ✅ Done |
+| 6 | `03-airflow-dag-list.png` | DAG list with "Success" status | ✅ Done |
+| 7 | `04-airflow-grid-success.png` | Grid view all green | ✅ Done |
+| 8 | `05-airflow-tree-success.png` | Tree view confirmation | ✅ Done |
+| 9 | `06-postgres-data.png` | `SELECT * FROM fact_trips LIMIT 10` | ✅ Done |
+| 10 | `07-dashboard-overview.png` | Full dashboard page | ✅ Done |
+| 11 | `08-dashboard-charts.png` | All 4 charts visible | ✅ Done |
 
-### Level 2: Recommended (4 screenshots)
-
-| # | Filename | Description | Status |
-|---|----------|-------------|--------|
-| 12 | `09-airflow-dag-code.png` | `dags/etl_pipeline.py` | ⬜ Pending |
-| 13 | `10-extract-script.png` | `scripts/extract.py` | ⬜ Pending |
-| 14 | `11-transform-script.png` | `scripts/transform.py` | ⬜ Pending |
-| 15 | `12-load-script.png` | `scripts/load.py` | ⬜ Pending |
-
-### Level 3: Value-Add (4 screenshots)
+### Level 2: Recommended (4 screenshots) - ✅ COMPLETED
 
 | # | Filename | Description | Status |
 |---|----------|-------------|--------|
-| 16 | `13-dashboard-code.png` | `dashboard/app.py` | ⬜ Pending |
-| 17 | `14-docker-compose.png` | `docker-compose.yml` | ⬜ Pending |
-| 18 | `15-airflow-log.png` | Task log with row count | ⬜ Pending |
-| 19 | `16-dashboard-with-filter.png` | Dashboard with applied filters | ⬜ Pending |
+| 12 | `09-airflow-dag-code.png` | `dags/etl_pipeline.py` | ✅ Done |
+| 13 | `10-extract-script.png` | `scripts/extract.py` | ✅ Done |
+| 14 | `11-transform-script.png` | `scripts/transform.py` | ✅ Done |
+| 15 | `12-load-script.png` | `scripts/load.py` | ✅ Done |
+
+### Level 3: Value-Add (4 screenshots) - ✅ COMPLETED
+
+| # | Filename | Description | Status |
+|---|----------|-------------|--------|
+| 16 | `13-dashboard-code.png` | `dashboard/app.py` | ✅ Done |
+| 17 | `14-docker-compose.png` | `docker-compose.yml` | ✅ Done |
+| 18 | `15-airflow-log.png` | Task log with row count | ✅ Done |
+| 19 | `16-dashboard-with-filter.png` | Dashboard with applied filters | ✅ Done |
 
 ---
 

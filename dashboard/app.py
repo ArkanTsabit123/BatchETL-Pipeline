@@ -54,14 +54,35 @@ def load_trip_data() -> pd.DataFrame:
     Raises:
         Exception: If database connection fails.
     """
+@st.cache_data(ttl=CACHE_TTL)
+def load_trip_data() -> pd.DataFrame:
+    """
+    Load trip data from PostgreSQL with row limit for performance.
+
+    Returns:
+        DataFrame: Trip data from fact_trips table.
+
+    Raises:
+        Exception: If database connection fails.
+    """
     try:
         engine = get_database_engine()
-        query = f"""
-            SELECT *
-            FROM fact_trips
-            ORDER BY trip_id
-            LIMIT {DATA_LIMIT}
-        """
+        
+        # Build query with conditional LIMIT clause
+        if DATA_LIMIT:
+            query = f"""
+                SELECT *
+                FROM fact_trips
+                ORDER BY trip_id
+                LIMIT {DATA_LIMIT}
+            """
+        else:
+            query = """
+                SELECT *
+                FROM fact_trips
+                ORDER BY trip_id
+            """
+        
         return pd.read_sql(query, engine)
     except Exception as e:
         raise Exception(f"Database connection failed: {str(e)}")
