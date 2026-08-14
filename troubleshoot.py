@@ -1,43 +1,24 @@
 # troubleshoot.py
+
 """
 BatchETL Pipeline - Troubleshooting Main Entry Point
 
-This script provides a menu to run specific troubleshooting modules
-or run all checks at once.
-
 Usage:
-    python troubleshoot.py          # Show menu
-    python troubleshoot.py --all    # Run all checks
-    python troubleshoot.py --docker # Run Docker checks only
-    python troubleshoot.py --airflow # Run Airflow checks only
-    python troubleshoot.py --postgres # Run PostgreSQL checks only
-    python troubleshoot.py --dashboard # Run Dashboard checks only
-    python troubleshoot.py --network # Run Network checks only
+    python troubleshoot.py              # Show menu
+    python troubleshoot.py --all        # Run all checks
+    python troubleshoot.py --docker     # Run Docker checks only
+    python troubleshoot.py --airflow    # Run Airflow checks only
+    python troubleshoot.py --postgres   # Run PostgreSQL checks only
+    python troubleshoot.py --dashboard  # Run Dashboard checks only
+    python troubleshoot.py --network    # Run Network checks only
 """
 
 import sys
 import subprocess
-import os
 from pathlib import Path
-from typing import List, Dict, Optional
 
-
-class Colors:
-    """Terminal color codes."""
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    CYAN = '\033[96m'
-    BOLD = '\033[1m'
-    END = '\033[0m'
-
-
-def print_header(text: str) -> None:
-    """Print formatted header."""
-    print(f"\n{Colors.CYAN}{'=' * 60}{Colors.END}")
-    print(f"{Colors.BOLD}{Colors.BLUE}{text}{Colors.END}")
-    print(f"{Colors.CYAN}{'=' * 60}{Colors.END}\n")
+from troubleshoot_utils import Colors, print_header, print_error, print_success
+from troubleshoot_config import VERIFICATION_SCRIPTS
 
 
 def print_menu() -> None:
@@ -45,14 +26,39 @@ def print_menu() -> None:
     print_header("BATCHETL PIPELINE - TROUBLESHOOTING MENU")
 
     print("Select a troubleshooting module:\n")
-    print(f"  {Colors.BOLD}1.{Colors.END} Docker & Containers      - Check Docker daemon and container status")
-    print(f"  {Colors.BOLD}2.{Colors.END} Airflow                 - Check Airflow DAG, UI, and scheduler")
-    print(f"  {Colors.BOLD}3.{Colors.END} PostgreSQL             - Check database connection, tables, and data")
-    print(f"  {Colors.BOLD}4.{Colors.END} Dashboard              - Check Streamlit dashboard and connectivity")
-    print(f"  {Colors.BOLD}5.{Colors.END} Network & Ports        - Check ports and network connectivity")
-    print(f"  {Colors.BOLD}6.{Colors.END} Run All Checks         - Run all troubleshooting modules")
-    print(f"  {Colors.BOLD}0.{Colors.END} Exit                   - Exit troubleshooting")
+    print(f"  {Colors.BOLD}1.{Colors.END} Docker and Containers")
+    print(f"  {Colors.BOLD}2.{Colors.END} Airflow")
+    print(f"  {Colors.BOLD}3.{Colors.END} PostgreSQL")
+    print(f"  {Colors.BOLD}4.{Colors.END} Dashboard")
+    print(f"  {Colors.BOLD}5.{Colors.END} Network and Ports")
+    print(f"  {Colors.BOLD}6.{Colors.END} Run All Troubleshooting")
+    print(f"  {Colors.BOLD}7.{Colors.END} Run All Verifications")
+    print(f"  {Colors.BOLD}8.{Colors.END} Show System Information")
+    print(f"  {Colors.BOLD}0.{Colors.END} Exit")
     print()
+
+
+def print_system_info() -> None:
+    """Display system information."""
+    print_header("SYSTEM INFORMATION")
+
+    import platform
+
+    print(f"  {Colors.BOLD}OS:{Colors.END} {platform.system()} {platform.release()}")
+    print(f"  {Colors.BOLD}Python:{Colors.END} {platform.python_version()}")
+    print(f"  {Colors.BOLD}Working Directory:{Colors.END} {Path.cwd()}")
+
+    from troubleshoot_utils import run_command, get_docker_container_status
+    from troubleshoot_config import CONTAINERS
+
+    success, version = run_command(['docker', '--version'])
+    print(f"  {Colors.BOLD}Docker:{Colors.END} {version if success else 'Not installed'}")
+
+    for name, container in CONTAINERS.items():
+        is_running, status = get_docker_container_status(container)
+        icon = "PASS" if is_running else "FAIL"
+        color = Colors.GREEN if is_running else Colors.RED
+        print(f"  {color}{Colors.BOLD}{container}:{Colors.END} {status}")
 
 
 def run_module(module: str) -> None:
@@ -66,26 +72,26 @@ def run_module(module: str) -> None:
     }
 
     if module not in script_map:
-        print(f"{Colors.RED}Unknown module: {module}{Colors.END}")
+        print_error(f"Unknown module: {module}")
         return
 
     script = script_map[module]
     script_path = Path(__file__).parent / script
 
     if not script_path.exists():
-        print(f"{Colors.RED}Script not found: {script}{Colors.END}")
-        print(f"{Colors.YELLOW}Please ensure all troubleshooting scripts are in the same directory.{Colors.END}")
+        print_error(f"Script not found: {script}")
+        print(f"     {Colors.YELLOW}-> Ensure all scripts are in the same directory.{Colors.END}")
         return
 
     try:
         result = subprocess.run([sys.executable, str(script_path)], capture_output=False)
         if result.returncode != 0:
-            print(f"{Colors.YELLOW}Module {module} completed with warnings or errors.{Colors.END}")
+            print_warning(f"Module {module} completed with warnings or errors.")
     except Exception as e:
-        print(f"{Colors.RED}Error running module {module}: {str(e)}{Colors.END}")
+        print_error(f"Error running module {module}: {str(e)}")
 
 
-def run_all() -> None:
+def run_all_troubleshooting() -> None:
     """Run all troubleshooting modules sequentially."""
     print_header("RUNNING ALL TROUBLESHOOTING CHECKS")
 
@@ -101,7 +107,7 @@ def run_all() -> None:
         script_path = Path(__file__).parent / script
 
         if not script_path.exists():
-            print(f"{Colors.RED}Script not found: {script}{Colors.END}")
+            print_error(f"Script not found: {script}")
             failed.append(module)
             continue
 
@@ -110,64 +116,108 @@ def run_all() -> None:
             if result.returncode != 0:
                 failed.append(module)
         except Exception as e:
-            print(f"{Colors.RED}Error: {str(e)}{Colors.END}")
+            print_error(f"Error: {str(e)}")
             failed.append(module)
 
     print_header("TROUBLESHOOTING SUMMARY")
 
     if failed:
         print(f"{Colors.YELLOW}Modules with issues: {', '.join(failed)}{Colors.END}")
-        print(f"{Colors.YELLOW}Please check the logs above for details.{Colors.END}")
+        print(f"{Colors.YELLOW}Check the logs above for details.{Colors.END}")
         sys.exit(1)
     else:
-        print(f"{Colors.GREEN}{Colors.BOLD}All checks passed! No issues detected.{Colors.END}")
+        print_success("All troubleshooting checks passed.")
         sys.exit(0)
+
+
+def run_all_verifications() -> None:
+    """Run all verification scripts."""
+    print_header("RUNNING ALL VERIFICATION SCRIPTS")
+
+    failed = []
+
+    for script in VERIFICATION_SCRIPTS:
+        script_path = Path(__file__).parent / script
+        if not script_path.exists():
+            print_warning(f"Script not found: {script}")
+            continue
+
+        print(f"\n{Colors.BOLD}Running: {script}{Colors.END}")
+        try:
+            result = subprocess.run([sys.executable, str(script_path)], capture_output=False)
+            if result.returncode != 0:
+                failed.append(script)
+        except Exception as e:
+            print_error(f"Error running {script}: {str(e)}")
+            failed.append(script)
+
+    print_header("VERIFICATION SUMMARY")
+
+    if failed:
+        print(f"{Colors.YELLOW}Failed scripts: {', '.join(failed)}{Colors.END}")
+        sys.exit(1)
+    else:
+        print_success("All verification scripts passed.")
+        sys.exit(0)
+
+
+def show_help() -> None:
+    """Show help message."""
+    print("""
+BatchETL Pipeline - Troubleshooting
+
+Usage:
+    python troubleshoot.py              # Show interactive menu
+    python troubleshoot.py [OPTION]     # Run specific checks
+
+Options:
+    --all, -a       Run all troubleshooting checks
+    --verification, -v Run all verification checks
+    --docker, -d    Run Docker checks only
+    --airflow, -af  Run Airflow checks only
+    --postgres, -p  Run PostgreSQL checks only
+    --dashboard, -db Run Dashboard checks only
+    --network, -n   Run Network checks only
+    --info, -i      Show system information
+    --help, -h      Show this help message
+    """)
 
 
 def main() -> None:
     """Main entry point."""
-    # Parse command line arguments
     if len(sys.argv) > 1:
         arg = sys.argv[1].lower()
 
-        if arg == '--all' or arg == '-a':
-            run_all()
-            return
-        elif arg == '--docker' or arg == '-d':
+        if arg in ['--all', '-a']:
+            run_all_troubleshooting()
+        elif arg in ['--verification', '-v']:
+            run_all_verifications()
+        elif arg in ['--docker', '-d']:
             run_module('docker')
-            return
-        elif arg == '--airflow' or arg == '-a':
+        elif arg in ['--airflow', '-af']:
             run_module('airflow')
-            return
-        elif arg == '--postgres' or arg == '-p':
+        elif arg in ['--postgres', '-p']:
             run_module('postgres')
-            return
-        elif arg == '--dashboard' or arg == '-db':
+        elif arg in ['--dashboard', '-db']:
             run_module('dashboard')
-            return
-        elif arg == '--network' or arg == '-n':
+        elif arg in ['--network', '-n']:
             run_module('network')
-            return
-        elif arg == '--help' or arg == '-h':
-            print("Usage: python troubleshoot.py [OPTION]")
-            print("\nOptions:")
-            print("  --all, -a      Run all troubleshooting checks")
-            print("  --docker, -d   Run Docker checks only")
-            print("  --airflow, -a  Run Airflow checks only")
-            print("  --postgres, -p Run PostgreSQL checks only")
-            print("  --dashboard, -db Run Dashboard checks only")
-            print("  --network, -n  Run Network checks only")
-            print("  --help, -h     Show this help message")
-            print("\nWithout options, shows interactive menu.")
-            return
+        elif arg in ['--info', '-i']:
+            print_system_info()
+        elif arg in ['--help', '-h']:
+            show_help()
+        else:
+            print_error(f"Unknown option: {arg}")
+            show_help()
+            sys.exit(1)
+        return
 
-    # Interactive menu
     while True:
         print_menu()
-        choice = input(f"{Colors.BOLD}Enter your choice (0-6): {Colors.END}").strip()
+        choice = input(f"{Colors.BOLD}Enter your choice (0-8): {Colors.END}").strip()
 
         if choice == '0':
-            print(f"\n{Colors.CYAN}Exiting troubleshooting. Goodbye!{Colors.END}")
+            print(f"\n{Colors.CYAN}Exiting troubleshooting.{Colors.END}")
             sys.exit(0)
         elif choice == '1':
             run_module('docker')
@@ -180,9 +230,13 @@ def main() -> None:
         elif choice == '5':
             run_module('network')
         elif choice == '6':
-            run_all()
+            run_all_troubleshooting()
+        elif choice == '7':
+            run_all_verifications()
+        elif choice == '8':
+            print_system_info()
         else:
-            print(f"{Colors.RED}Invalid choice. Please enter 0-6.{Colors.END}")
+            print_error(f"Invalid choice: {choice}. Please enter 0-8.")
 
 
 if __name__ == "__main__":

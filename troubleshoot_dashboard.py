@@ -1,82 +1,43 @@
 # troubleshoot_dashboard.py
+
 """
 BatchETL Pipeline - Dashboard Troubleshooting
 
-Checks:
-    - Dashboard container status
-    - Dashboard accessibility (port 8501)
-    - Dashboard files exist (app.py, Dockerfile, requirements.txt)
-    - Dashboard imports (streamlit, pandas, plotly, sqlalchemy)
-    - Dashboard connection to PostgreSQL
+Checks dashboard container, accessibility, files, imports, connection,
+content validation (KPIs, charts, filters), load time, and error logs.
 """
 
-import subprocess
 import sys
-import importlib.util
-import requests
+import time
 from pathlib import Path
-from typing import Tuple, List, Dict, Optional
 
-
-class Colors:
-    """Terminal color codes."""
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    CYAN = '\033[96m'
-    BOLD = '\033[1m'
-    END = '\033[0m'
-
-
-def print_header(text: str) -> None:
-    """Print formatted header."""
-    print(f"\n{Colors.CYAN}{'=' * 60}{Colors.END}")
-    print(f"{Colors.BOLD}{Colors.BLUE}{text}{Colors.END}")
-    print(f"{Colors.CYAN}{'=' * 60}{Colors.END}\n")
-
-
-def print_check(text: str, status: bool, detail: str = "") -> None:
-    """Print check result."""
-    icon = "✓" if status else "✗"
-    color = Colors.GREEN if status else Colors.RED
-    if detail:
-        print(f"  {color}{icon} {text}{Colors.END}")
-        print(f"     {Colors.CYAN}-> {detail}{Colors.END}")
-    else:
-        print(f"  {color}{icon} {text}{Colors.END}")
-
-
-def run_command(command: List[str]) -> Tuple[bool, str]:
-    """Run a shell command and return status and output."""
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=10)
-        return result.returncode == 0, result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        return False, str(e)
+from troubleshoot_utils import (
+    Colors, print_header, print_check, print_warning,
+    get_docker_container_status, check_url, check_file_exists,
+    print_summary, get_container_logs
+)
+from troubleshoot_config import (
+    CONTAINERS, PORTS, TIMEOUTS, DASHBOARD_FILES, REQUIRED_IMPORTS,
+    DASHBOARD_KPIS, DASHBOARD_CHARTS, DASHBOARD_FILTERS, THRESHOLDS
+)
 
 
 def check_dashboard_container() -> bool:
     """Check if Streamlit container is running."""
     print_header("DASHBOARD CONTAINER")
 
-    success, output = run_command([
-        'docker', 'ps', '--filter', 'name=batch-etl-streamlit',
-        '--format', '{{.Status}}'
-    ])
+    container_name = CONTAINERS['streamlit']
+    is_running, status = get_docker_container_status(container_name)
 
-    if success and output:
-        print_check("Streamlit container is running", True, output)
+    if is_running:
+        print_check("Streamlit container is running", True, status)
         return True
     else:
-        exists, _ = run_command([
-            'docker', 'ps', '-a', '--filter', 'name=batch-etl-streamlit',
-            '--format', '{{.Status}}'
-        ])
+        exists = get_docker_container_exists(container_name)
 
-        if exists and output:
+        if exists:
             print_check("Streamlit container is STOPPED", False, "Container exists but not running")
-            print(f"     {Colors.YELLOW}-> Run: docker-compose start streamlit{Colors.END}")
+            print(f"     {Colors.YELLOW}-> Run: docker-compose start {container_name}{Colors.END}")
         else:
             print_check("Streamlit container does NOT exist", False)
             print(f"     {Colors.YELLOW}-> Run: docker-compose up -d streamlit{Colors.END}")
@@ -87,18 +48,14 @@ def check_dashboard_accessible() -> bool:
     """Check if dashboard is accessible."""
     print_header("DASHBOARD ACCESSIBILITY")
 
-    try:
-        response = requests.get('http://localhost:8501', timeout=5)
-        accessible = response.status_code == 200
-        print_check("Dashboard accessible", accessible, f"Status: {response.status_code}")
-        return accessible
-    except requests.ConnectionError:
-        print_check("Dashboard NOT accessible", False, "Connection refused")
+    is_ok, status, _ = check_url(f'http://localhost:{PORTS["streamlit"]}', TIMEOUTS['http'])
+
+    if is_ok:
+        print_check(f"Dashboard accessible (port {PORTS['streamlit']})", True, f"Status: {status}")
+        return True
+    else:
+        print_check(f"Dashboard NOT accessible (port {PORTS['streamlit']})", False, f"Status: {status}")
         print(f"     {Colors.YELLOW}-> Check if container is running{Colors.END}")
-        return False
-    except requests.Timeout:
-        print_check("Dashboard NOT accessible", False, "Connection timeout")
-        print(f"     {Colors.YELLOW}-> Check if container is responding{Colors.END}")
         return False
 
 
@@ -106,18 +63,13 @@ def check_dashboard_files() -> bool:
     """Check if dashboard files exist."""
     print_header("DASHBOARD FILES")
 
-    files = [
-        ('dashboard/app.py', 'Main application'),
-        ('dashboard/Dockerfile', 'Container definition'),
-        ('dashboard/requirements.txt', 'Dependencies'),
-    ]
-
     all_exist = True
-    for file_path, description in files:
-        path = Path.cwd() / file_path
-        exists = path.exists()
-        print_check(f"{file_path}", exists, description)
-        if not exists:
+    for file_path in DASHBOARD_FILES:
+        exists, info = check_file_exists(file_path)
+        if exists:
+            print_check(f"{file_path}", True, f"{info['size_kb']:.1f} KB")
+        else:
+            print_check(f"{file_path}", False, "Not found")
             all_exist = False
 
     return all_exist
@@ -137,16 +89,8 @@ def check_dashboard_imports() -> bool:
         with open(app_path, 'r') as f:
             content = f.read()
 
-        required_imports = [
-            'streamlit',
-            'pandas',
-            'plotly',
-            'sqlalchemy',
-            'create_engine',
-        ]
-
         all_present = True
-        for imp in required_imports:
+        for imp in REQUIRED_IMPORTS:
             exists = imp in content
             print_check(f"Import: {imp}", exists)
             if not exists:
@@ -176,7 +120,6 @@ def check_dashboard_connection() -> bool:
         print_check("Database connection string configured", has_connection)
 
         if has_connection:
-            # Check connection details
             has_admin = 'admin' in content
             has_port = '5432' in content
             print_check("Username: admin", has_admin)
@@ -186,6 +129,110 @@ def check_dashboard_connection() -> bool:
     except Exception as e:
         print_check("Could not read app.py", False, str(e))
         return False
+
+
+def check_dashboard_content() -> bool:
+    """Check dashboard content for key elements."""
+    print_header("DASHBOARD CONTENT VALIDATION")
+
+    is_ok, status, html = check_url(f'http://localhost:{PORTS["streamlit"]}', TIMEOUTS['http'])
+
+    if not is_ok:
+        print_check("Dashboard NOT accessible", False)
+        return False
+
+    print_check("Dashboard content loaded", True)
+
+    print(f"\n  {Colors.BOLD}KPIs:{Colors.END}")
+    kpi_found = 0
+    for kpi in DASHBOARD_KPIS:
+        exists = kpi in html
+        print_check(f"  {kpi}", exists)
+        if exists:
+            kpi_found += 1
+
+    print(f"\n  {Colors.BOLD}Charts:{Colors.END}")
+    chart_found = 0
+    for chart in DASHBOARD_CHARTS:
+        exists = chart in html
+        print_check(f"  {chart}", exists)
+        if exists:
+            chart_found += 1
+
+    print(f"\n  {Colors.BOLD}Filters:{Colors.END}")
+    filter_found = 0
+    for filter_name in DASHBOARD_FILTERS:
+        exists = filter_name in html
+        print_check(f"  {filter_name}", exists)
+        if exists:
+            filter_found += 1
+
+    total_kpis = len(DASHBOARD_KPIS)
+    total_charts = len(DASHBOARD_CHARTS)
+    total_filters = len(DASHBOARD_FILTERS)
+
+    kpi_status = kpi_found == total_kpis
+    chart_status = chart_found == total_charts
+    filter_status = filter_found == total_filters
+
+    print(f"\n  {Colors.BOLD}Summary:{Colors.END}")
+    print_check(f"  KPIs: {kpi_found}/{total_kpis}", kpi_status)
+    print_check(f"  Charts: {chart_found}/{total_charts}", chart_status)
+    print_check(f"  Filters: {filter_found}/{total_filters}", filter_status)
+
+    return kpi_status and chart_status and filter_status
+
+
+def check_load_time() -> bool:
+    """Check dashboard load time."""
+    print_header("LOAD TIME")
+
+    max_time = THRESHOLDS['response_time']['max_ms'] / 1000
+
+    start_time = time.time()
+    is_ok, _, _ = check_url(f'http://localhost:{PORTS["streamlit"]}', TIMEOUTS['http'])
+    elapsed = time.time() - start_time
+
+    if is_ok:
+        is_fast = elapsed < max_time
+        print_check(f"Dashboard load time: {elapsed:.3f}s", is_fast)
+        if not is_fast:
+            print_warning(f"Load time {elapsed:.3f}s exceeds recommended {max_time:.3f}s")
+        return is_fast
+    else:
+        print_check("Dashboard load time: FAILED", False, "Dashboard not accessible")
+        return False
+
+
+def check_dashboard_errors() -> bool:
+    """Check for errors in dashboard logs."""
+    print_header("DASHBOARD ERRORS")
+
+    container_name = CONTAINERS['streamlit']
+    success, output = get_container_logs(container_name, 50)
+
+    if not success:
+        print_check("Could not fetch dashboard logs", False)
+        return False
+
+    error_keywords = ['error', 'exception', 'failed', 'traceback', 'st.error']
+    found_errors = []
+
+    for line in output.split('\n'):
+        line_lower = line.lower()
+        if any(kw in line_lower for kw in error_keywords):
+            found_errors.append(line.strip())
+
+    if found_errors:
+        print_check(f"Found {len(found_errors)} error(s) in logs", False)
+        for error in found_errors[:5]:
+            print(f"  {Colors.RED}-> {error[:100]}{Colors.END}")
+        if len(found_errors) > 5:
+            print(f"  {Colors.RED}... and {len(found_errors) - 5} more errors{Colors.END}")
+        return False
+    else:
+        print_check("No errors found in dashboard logs", True)
+        return True
 
 
 def main() -> None:
@@ -198,24 +245,12 @@ def main() -> None:
         'imports': check_dashboard_imports(),
         'connection': check_dashboard_connection(),
         'accessible': check_dashboard_accessible(),
+        'content': check_dashboard_content(),
+        'load_time': check_load_time(),
+        'errors': check_dashboard_errors(),
     }
 
-    print_header("DASHBOARD TROUBLESHOOTING SUMMARY")
-
-    passed = sum(1 for v in results.values() if v)
-    total = len(results)
-
-    print(f"\n  Total Checks: {total}")
-    print(f"  Passed: {passed}")
-    print(f"  Failed: {total - passed}")
-
-    if passed == total:
-        print(f"\n{Colors.GREEN}{Colors.BOLD}All Dashboard checks passed!{Colors.END}")
-        sys.exit(0)
-    else:
-        print(f"\n{Colors.YELLOW}{Colors.BOLD}Some Dashboard checks failed.{Colors.END}")
-        print(f"{Colors.YELLOW}Please fix the issues above before proceeding.{Colors.END}")
-        sys.exit(1)
+    print_summary(results, "DASHBOARD TROUBLESHOOTING SUMMARY")
 
 
 if __name__ == "__main__":

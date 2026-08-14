@@ -1,165 +1,148 @@
 # troubleshoot_docker.py
+
 """
 BatchETL Pipeline - Docker Troubleshooting
 
-Checks:
-    - Docker daemon status
-    - Required containers status
-    - Container logs (last 10 lines)
-    - Docker volumes
-    - Docker network
+Checks Docker daemon, containers, volumes, network, disk space, and resource usage.
 """
 
-import subprocess
 import sys
 from pathlib import Path
-from typing import Tuple, List, Dict
 
-
-class Colors:
-    """Terminal color codes."""
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    CYAN = '\033[96m'
-    BOLD = '\033[1m'
-    END = '\033[0m'
-
-
-def print_header(text: str) -> None:
-    """Print formatted header."""
-    print(f"\n{Colors.CYAN}{'=' * 60}{Colors.END}")
-    print(f"{Colors.BOLD}{Colors.BLUE}{text}{Colors.END}")
-    print(f"{Colors.CYAN}{'=' * 60}{Colors.END}\n")
-
-
-def print_check(text: str, status: bool, detail: str = "") -> None:
-    """Print check result."""
-    icon = "✓" if status else "✗"
-    color = Colors.GREEN if status else Colors.RED
-    if detail:
-        print(f"  {color}{icon} {text}{Colors.END}")
-        print(f"     {Colors.CYAN}-> {detail}{Colors.END}")
-    else:
-        print(f"  {color}{icon} {text}{Colors.END}")
-
-
-def run_command(command: List[str]) -> Tuple[bool, str]:
-    """Run a shell command and return status and output."""
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=10)
-        return result.returncode == 0, result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False, ""
+from troubleshoot_utils import (
+    Colors, print_header, print_check, print_warning,
+    run_command, run_docker_command, get_docker_container_status,
+    get_docker_container_exists, get_container_logs,
+    check_disk_space, format_bytes, print_summary
+)
+from troubleshoot_config import (
+    CONTAINERS, REQUIRED_CONTAINERS, OPTIONAL_CONTAINERS,
+    TIMEOUTS, FILES, THRESHOLDS
+)
 
 
 def check_docker_daemon() -> bool:
     """Check if Docker daemon is running."""
     print_header("DOCKER DAEMON")
 
-    success, output = run_command(['docker', '--version'])
+    success, output = run_command(['docker', '--version'], TIMEOUTS['command'])
 
     if success:
         print_check("Docker daemon is running", True, output)
         return True
     else:
         print_check("Docker daemon is NOT running", False)
-        print(f"     {Colors.YELLOW}-> Please start Docker Desktop{Colors.END}")
+        print(f"     {Colors.YELLOW}-> Start Docker Desktop{Colors.END}")
         return False
 
 
-def check_containers() -> Tuple[bool, Dict[str, str]]:
-    """
-    Check if required containers are running.
+def check_compose_file() -> bool:
+    """Check if docker-compose.yml exists."""
+    print_header("DOCKER COMPOSE FILE")
 
-    Returns:
-        Tuple[bool, Dict]: (all_running, container_status)
-    """
+    compose_path = Path.cwd() / FILES['compose']
+
+    if compose_path.exists():
+        size_kb = compose_path.stat().st_size / 1024
+        print_check("docker-compose.yml exists", True, f"{size_kb:.1f} KB")
+        return True
+    else:
+        print_check("docker-compose.yml NOT found", False)
+        print(f"     {Colors.YELLOW}-> Create docker-compose.yml in the project root{Colors.END}")
+        return False
+
+
+def check_containers() -> bool:
+    """Check if required containers are running."""
     print_header("CONTAINER STATUS")
 
-    required_containers = [
-        ('batch-etl-postgres', 'PostgreSQL'),
-        ('batch-etl-streamlit', 'Streamlit'),
-    ]
-
     all_running = True
-    container_status = {}
 
-    for container_name, display_name in required_containers:
-        success, output = run_command([
-            'docker', 'ps', '--filter', f'name={container_name}',
-            '--format', '{{.Status}}'
-        ])
+    for container_key in REQUIRED_CONTAINERS:
+        container_name = CONTAINERS[container_key]
+        is_running, status = get_docker_container_status(container_name)
 
-        if success and output:
-            print_check(f"{display_name} ({container_name}) is running", True, output)
-            container_status[container_name] = 'running'
+        if is_running:
+            print_check(f"{container_key.capitalize()} ({container_name}) is running", True, status)
         else:
-            # Check if container exists but is stopped
-            exists, stopped_output = run_command([
-                'docker', 'ps', '-a', '--filter', f'name={container_name}',
-                '--format', '{{.Status}}'
-            ])
+            exists = get_docker_container_exists(container_name)
 
-            if exists and stopped_output:
-                print_check(f"{display_name} ({container_name}) is STOPPED", False, "Container exists but not running")
+            if exists:
+                print_check(f"{container_key.capitalize()} ({container_name}) is STOPPED", False,
+                           "Container exists but not running")
                 print(f"     {Colors.YELLOW}-> Run: docker-compose start {container_name}{Colors.END}")
-                all_running = False
-                container_status[container_name] = 'stopped'
             else:
-                print_check(f"{display_name} ({container_name}) does not exist", False, "Container not found")
+                print_check(f"{container_key.capitalize()} ({container_name}) does NOT exist", False,
+                           "Container not found")
                 print(f"     {Colors.YELLOW}-> Run: docker-compose up -d{Colors.END}")
-                all_running = False
-                container_status[container_name] = 'missing'
+            all_running = False
 
-    # Airflow is optional - check but don't fail if not running
-    airflow_success, airflow_output = run_command([
-        'docker', 'ps', '--filter', 'name=batch-etl-airflow',
-        '--format', '{{.Status}}'
-    ])
+    for container_key in OPTIONAL_CONTAINERS:
+        container_name = CONTAINERS[container_key]
+        is_running, status = get_docker_container_status(container_name)
 
-    if airflow_success and airflow_output:
-        print_check("Airflow (batch-etl-airflow) is running", True, airflow_output)
-        container_status['batch-etl-airflow'] = 'running'
-    else:
-        print_check("Airflow (batch-etl-airflow) is not running", False, "Optional: Run docker-compose up -d airflow")
-        container_status['batch-etl-airflow'] = 'stopped'
+        if is_running:
+            print_check(f"{container_key.capitalize()} ({container_name}) is running", True, status)
+        else:
+            print_warning(f"{container_key.capitalize()} ({container_name}) is not running",
+                         "Optional: Run docker-compose up -d for full pipeline")
 
-    return all_running, container_status
+    return all_running
 
 
 def check_container_logs() -> None:
     """Display last 10 lines of container logs."""
     print_header("CONTAINER LOGS (Last 10 lines)")
 
-    containers = ['batch-etl-postgres', 'batch-etl-streamlit']
+    containers_to_check = REQUIRED_CONTAINERS + OPTIONAL_CONTAINERS
+    has_errors = False
 
-    for container in containers:
-        success, output = run_command([
-            'docker', 'logs', '--tail', '10', container
-        ])
+    for container_key in containers_to_check:
+        container_name = CONTAINERS[container_key]
+        is_running, _ = get_docker_container_status(container_name)
 
-        print(f"\n{Colors.BOLD}{container}:{Colors.END}")
+        if not is_running:
+            print(f"\n{Colors.BOLD}{container_name}:{Colors.END}")
+            print(f"  {Colors.YELLOW}Container not running{Colors.END}")
+            continue
+
+        success, output = get_container_logs(container_name, 20)
+
+        print(f"\n{Colors.BOLD}{container_name}:{Colors.END}")
         if success and output:
-            for line in output.split('\n')[:10]:
-                if 'error' in line.lower() or 'fail' in line.lower():
+            error_lines = [line for line in output.split('\n')[:20] if line.strip() and 'error' in line.lower()]
+            warning_lines = [line for line in output.split('\n')[:20] if line.strip() and 'warning' in line.lower()]
+            info_lines = [line for line in output.split('\n')[:20] if line.strip() and 'error' not in line.lower() and 'warning' not in line.lower()]
+
+            if error_lines:
+                has_errors = True
+                for line in error_lines[:5]:
                     print(f"  {Colors.RED}{line}{Colors.END}")
-                elif 'warning' in line.lower():
-                    print(f"  {Colors.YELLOW}{line}{Colors.END}")
-                else:
+                if len(error_lines) > 5:
+                    print(f"  {Colors.RED}... and {len(error_lines) - 5} more errors{Colors.END}")
+
+            for line in warning_lines[:3]:
+                print(f"  {Colors.YELLOW}{line}{Colors.END}")
+
+            if not error_lines and not warning_lines and info_lines:
+                for line in info_lines[:3]:
                     print(f"  {line}")
+                if len(info_lines) > 3:
+                    print(f"  ... and {len(info_lines) - 3} more lines")
         else:
-            print(f"  {Colors.YELLOW}No logs available or container not running{Colors.END}")
+            print(f"  {Colors.YELLOW}No logs available{Colors.END}")
+
+    if has_errors:
+        print_warning("Errors found in container logs. Check the logs above.")
 
 
 def check_volumes() -> bool:
     """Check if required Docker volumes exist."""
     print_header("DOCKER VOLUMES")
 
-    success, output = run_command([
-        'docker', 'volume', 'ls', '--format', '{{.Name}}'
-    ])
+    success, output = run_docker_command([
+        'volume', 'ls', '--format', '{{.Name}}'
+    ], TIMEOUTS['command'])
 
     if success:
         volumes = output.split('\n') if output else []
@@ -181,16 +164,16 @@ def check_network() -> bool:
     """Check if Docker network exists."""
     print_header("DOCKER NETWORK")
 
-    success, output = run_command([
-        'docker', 'network', 'ls', '--format', '{{.Name}}'
-    ])
+    success, output = run_docker_command([
+        'network', 'ls', '--format', '{{.Name}}'
+    ], TIMEOUTS['command'])
 
     if success:
         networks = output.split('\n') if output else []
         print(f"  {Colors.CYAN}Networks found: {', '.join(networks) if networks else 'None'}{Colors.END}")
-        
+
         has_network = any('batch-etl-network' in n for n in networks)
-        
+
         if has_network:
             print_check("batch-etl-network exists", True)
             return True
@@ -203,65 +186,82 @@ def check_network() -> bool:
         return False
 
 
-def check_compose_file() -> bool:
-    """Check if docker-compose.yml exists."""
-    print_header("DOCKER COMPOSE FILE")
+def check_disk_space_usage() -> bool:
+    """Check disk space availability."""
+    print_header("DISK SPACE")
 
-    compose_path = Path.cwd() / 'docker-compose.yml'
+    success, info = check_disk_space('.')
 
-    if compose_path.exists():
-        size_kb = compose_path.stat().st_size / 1024
-        print_check("docker-compose.yml exists", True, f"{size_kb:.1f} KB")
-        return True
+    if success:
+        free_gb = info['free_gb']
+        total_gb = info['total_gb']
+        min_required = THRESHOLDS['disk_space']['min_gb']
+        warning_level = THRESHOLDS['disk_space']['warning_gb']
+
+        print_check(f"Total disk space: {format_bytes(info['total_gb'] * 1024 ** 3)}", True)
+
+        if free_gb < min_required:
+            print_check(f"Free space {free_gb:.1f} GB >= {min_required} GB required", False)
+            print(f"     {Colors.RED}-> Critical: Low disk space! Free up at least {min_required} GB{Colors.END}")
+            return False
+        elif free_gb < warning_level:
+            print_warning(f"Free space {free_gb:.1f} GB < {warning_level} GB warning threshold")
+            return True
+        else:
+            print_check(f"Free space {free_gb:.1f} GB available", True)
+            return True
     else:
-        print_check("docker-compose.yml NOT found", False)
-        print(f"     {Colors.YELLOW}-> Please create docker-compose.yml in the project root{Colors.END}")
+        print_check("Could not check disk space", False)
         return False
+
+
+def check_container_resources() -> None:
+    """Check container resource usage."""
+    print_header("CONTAINER RESOURCES")
+
+    containers_to_check = REQUIRED_CONTAINERS + OPTIONAL_CONTAINERS
+
+    for container_key in containers_to_check:
+        container_name = CONTAINERS[container_key]
+        is_running, _ = get_docker_container_status(container_name)
+
+        if not is_running:
+            print(f"\n{Colors.BOLD}{container_name}:{Colors.END}")
+            print(f"  {Colors.YELLOW}Container not running{Colors.END}")
+            continue
+
+        success, output = run_docker_command([
+            'stats', '--no-stream', '--format',
+            '{{.Name}} | CPU: {{.CPUPerc}} | MEM: {{.MemUsage}} | NET: {{.NetIO}}',
+            container_name
+        ], TIMEOUTS['command'])
+
+        if success and output:
+            print(f"\n{Colors.BOLD}{container_name}:{Colors.END}")
+            print(f"  {output}")
+        else:
+            print(f"\n{Colors.BOLD}{container_name}:{Colors.END}")
+            print(f"  {Colors.YELLOW}Could not get resource usage{Colors.END}")
 
 
 def main() -> None:
     """Main entry point."""
     print_header("BATCHETL PIPELINE - DOCKER TROUBLESHOOTING")
 
-    compose_ok = check_compose_file()
-    docker_ok = check_docker_daemon()
-    containers_ok, container_status = check_containers()
-    volumes_ok = check_volumes()
-    network_ok = check_network()
-
-    # Show logs only if containers are running
-    if docker_ok and containers_ok:
-        check_container_logs()
-
     results = {
-        'compose_file': compose_ok,
-        'docker_daemon': docker_ok,
-        'containers': containers_ok,
-        'volumes': volumes_ok,
-        'network': network_ok,
+        'compose_file': check_compose_file(),
+        'docker_daemon': check_docker_daemon(),
+        'containers': check_containers(),
+        'volumes': check_volumes(),
+        'network': check_network(),
+        'disk_space': check_disk_space_usage(),
     }
 
-    print_header("DOCKER TROUBLESHOOTING SUMMARY")
+    if results['docker_daemon']:
+        check_container_logs()
+        check_container_resources()
 
-    # Count only critical checks (exclude Airflow from count)
-    critical_checks = ['compose_file', 'docker_daemon', 'containers', 'volumes', 'network']
-    passed = sum(1 for k in critical_checks if results.get(k, False))
-    total = len(critical_checks)
-
-    print(f"\n  Total Critical Checks: {total}")
-    print(f"  Passed: {passed}")
-    print(f"  Failed: {total - passed}")
-
-    if container_status.get('batch-etl-airflow', '') == 'stopped':
-        print(f"\n  {Colors.YELLOW}Note: Airflow is not running (optional){Colors.END}")
-
-    if passed == total:
-        print(f"\n{Colors.GREEN}{Colors.BOLD}All critical Docker checks passed!{Colors.END}")
-        sys.exit(0)
-    else:
-        print(f"\n{Colors.YELLOW}{Colors.BOLD}Some critical Docker checks failed.{Colors.END}")
-        print(f"{Colors.YELLOW}Please fix the issues above before proceeding.{Colors.END}")
-        sys.exit(1)
+    print_summary(results, "DOCKER TROUBLESHOOTING SUMMARY")
 
 
 if __name__ == "__main__":

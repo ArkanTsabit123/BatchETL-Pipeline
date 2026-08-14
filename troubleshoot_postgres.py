@@ -1,91 +1,42 @@
 # troubleshoot_postgres.py
+
 """
 BatchETL Pipeline - PostgreSQL Troubleshooting
 
-Checks:
-    - PostgreSQL container status
-    - PostgreSQL connection
-    - Database exists (warehouse)
-    - fact_trips table exists
-    - Data count
-    - Data quality (outliers, nulls)
-    - Indexes exist
+Checks PostgreSQL container, connection, tables, data quality, indexes,
+connection pool, query performance, and database size.
 """
 
-import subprocess
 import sys
-from pathlib import Path
-from typing import Tuple, List, Dict, Optional
+import time
 
-
-class Colors:
-    """Terminal color codes."""
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    CYAN = '\033[96m'
-    BOLD = '\033[1m'
-    END = '\033[0m'
-
-
-def print_header(text: str) -> None:
-    """Print formatted header."""
-    print(f"\n{Colors.CYAN}{'=' * 60}{Colors.END}")
-    print(f"{Colors.BOLD}{Colors.BLUE}{text}{Colors.END}")
-    print(f"{Colors.CYAN}{'=' * 60}{Colors.END}\n")
-
-
-def print_check(text: str, status: bool, detail: str = "") -> None:
-    """Print check result."""
-    icon = "✓" if status else "✗"
-    color = Colors.GREEN if status else Colors.RED
-    if detail:
-        print(f"  {color}{icon} {text}{Colors.END}")
-        print(f"     {Colors.CYAN}-> {detail}{Colors.END}")
-    else:
-        print(f"  {color}{icon} {text}{Colors.END}")
-
-
-def run_command(command: List[str]) -> Tuple[bool, str]:
-    """Run a shell command and return status and output."""
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=10)
-        return result.returncode == 0, result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        return False, str(e)
-
-
-def run_psql(query: str) -> Tuple[bool, str]:
-    """Run a PostgreSQL query via docker exec."""
-    return run_command([
-        'docker', 'exec', 'batch-etl-postgres',
-        'psql', '-U', 'admin', '-d', 'warehouse',
-        '-t', '-c', query
-    ])
+from troubleshoot_utils import (
+    Colors, print_header, print_check, print_warning,
+    run_psql, get_docker_container_status, check_port_open,
+    print_summary, format_bytes
+)
+from troubleshoot_config import (
+    CONTAINERS, DB_CONFIG, REQUIRED_INDEXES, DATA_QUALITY_RULES,
+    PORTS, TIMEOUTS, THRESHOLDS
+)
 
 
 def check_postgres_container() -> bool:
     """Check if PostgreSQL container is running."""
     print_header("POSTGRESQL CONTAINER")
 
-    success, output = run_command([
-        'docker', 'ps', '--filter', 'name=batch-etl-postgres',
-        '--format', '{{.Status}}'
-    ])
+    container_name = CONTAINERS['postgres']
+    is_running, status = get_docker_container_status(container_name)
 
-    if success and output:
-        print_check("PostgreSQL container is running", True, output)
+    if is_running:
+        print_check("PostgreSQL container is running", True, status)
         return True
     else:
-        exists, _ = run_command([
-            'docker', 'ps', '-a', '--filter', 'name=batch-etl-postgres',
-            '--format', '{{.Status}}'
-        ])
+        exists = get_docker_container_exists(container_name)
 
-        if exists and output:
+        if exists:
             print_check("PostgreSQL container is STOPPED", False, "Container exists but not running")
-            print(f"     {Colors.YELLOW}-> Run: docker-compose start postgres{Colors.END}")
+            print(f"     {Colors.YELLOW}-> Run: docker-compose start {container_name}{Colors.END}")
         else:
             print_check("PostgreSQL container does NOT exist", False)
             print(f"     {Colors.YELLOW}-> Run: docker-compose up -d postgres{Colors.END}")
@@ -96,13 +47,21 @@ def check_postgres_connection() -> bool:
     """Check if PostgreSQL is accessible."""
     print_header("POSTGRESQL CONNECTION")
 
-    success, output = run_psql("SELECT 1")
+    port_open = check_port_open('localhost', PORTS['postgres'], TIMEOUTS['port_check'])
+    print_check(f"PostgreSQL port {PORTS['postgres']} open", port_open)
 
-    if success:
-        print_check("PostgreSQL connection successful", True)
-        return True
+    if port_open:
+        success, _ = run_psql("SELECT 1", CONTAINERS['postgres'],
+                              DB_CONFIG['user'], DB_CONFIG['database'],
+                              TIMEOUTS['command'])
+        if success:
+            print_check("PostgreSQL connection successful", True)
+            return True
+        else:
+            print_check("PostgreSQL connection FAILED", False)
+            return False
     else:
-        print_check("PostgreSQL connection FAILED", False, output or "Check container status")
+        print_check("PostgreSQL port not open", False)
         return False
 
 
@@ -110,7 +69,11 @@ def check_database_exists() -> bool:
     """Check if warehouse database exists."""
     print_header("DATABASE EXISTENCE")
 
-    success, output = run_psql("SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'warehouse');")
+    success, output = run_psql(
+        "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'warehouse');",
+        CONTAINERS['postgres'], DB_CONFIG['user'], DB_CONFIG['database'],
+        TIMEOUTS['command']
+    )
 
     if success and 't' in output.lower():
         print_check("Database 'warehouse' exists", True)
@@ -126,7 +89,9 @@ def check_table_exists() -> bool:
     print_header("TABLE EXISTENCE")
 
     success, output = run_psql(
-        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'fact_trips');"
+        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'fact_trips');",
+        CONTAINERS['postgres'], DB_CONFIG['user'], DB_CONFIG['database'],
+        TIMEOUTS['command']
     )
 
     if success and 't' in output.lower():
@@ -134,7 +99,7 @@ def check_table_exists() -> bool:
         return True
     else:
         print_check("Table 'fact_trips' NOT found", False)
-        print(f"     {Colors.YELLOW}-> Run init.sql: docker exec -i batch-etl-postgres psql -U admin -d warehouse < warehouse/init.sql{Colors.END}")
+        print(f"     {Colors.YELLOW}-> Run: docker exec -i {CONTAINERS['postgres']} psql -U {DB_CONFIG['user']} -d {DB_CONFIG['database']} < warehouse/init.sql{Colors.END}")
         return False
 
 
@@ -142,24 +107,35 @@ def check_data_count() -> bool:
     """Check data count in fact_trips."""
     print_header("DATA COUNT")
 
-    success, output = run_psql("SELECT COUNT(*) FROM fact_trips;")
+    success, output = run_psql(
+        "SELECT COUNT(*) FROM fact_trips;",
+        CONTAINERS['postgres'], DB_CONFIG['user'], DB_CONFIG['database'],
+        TIMEOUTS['command']
+    )
 
     if success:
         try:
             count = int(output.strip())
-            if count > 0:
-                print_check(f"Total rows: {count:,}", True)
-                print_check("Data exists in fact_trips", True, f"{count:,} rows")
+            min_required = THRESHOLDS['data_count']['min_required']
+            warning_level = THRESHOLDS['data_count']['warning']
+
+            print_check(f"Total rows: {count:,}", count > 0)
+
+            if count >= min_required:
+                print_check(f"Data count >= {min_required:,}", True)
+                return True
+            elif count >= warning_level:
+                print_warning(f"Data count {count:,} is below required {min_required:,}")
                 return True
             else:
-                print_check("No data in fact_trips", False)
-                print(f"     {Colors.YELLOW}-> Trigger DAG to load data{Colors.END}")
+                print_check(f"Data count {count:,} >= {min_required:,}", False)
+                print(f"     {Colors.YELLOW}-> Trigger DAG to load more data{Colors.END}")
                 return False
         except ValueError:
-            print_check("Could not parse row count", False, output)
+            print_check("Could not parse row count", False)
             return False
     else:
-        print_check("Could not query row count", False, output)
+        print_check("Could not query row count", False)
         return False
 
 
@@ -167,17 +143,17 @@ def check_indexes() -> bool:
     """Check if indexes exist."""
     print_header("INDEXES")
 
-    expected_indexes = ['idx_pickup_datetime', 'idx_pickup_day', 'idx_fare_amount']
-
     success, output = run_psql(
-        "SELECT indexname FROM pg_indexes WHERE tablename = 'fact_trips';"
+        "SELECT indexname FROM pg_indexes WHERE tablename = 'fact_trips';",
+        CONTAINERS['postgres'], DB_CONFIG['user'], DB_CONFIG['database'],
+        TIMEOUTS['command']
     )
 
     if success:
         existing = [idx.strip() for idx in output.split('\n') if idx.strip()]
 
         all_exist = True
-        for idx in expected_indexes:
+        for idx in REQUIRED_INDEXES:
             exists = idx in existing
             print_check(f"Index: {idx}", exists)
             if not exists:
@@ -185,7 +161,7 @@ def check_indexes() -> bool:
 
         return all_exist
     else:
-        print_check("Could not check indexes", False, output)
+        print_check("Could not check indexes", False)
         return False
 
 
@@ -193,22 +169,30 @@ def check_data_quality() -> bool:
     """Check data quality."""
     print_header("DATA QUALITY")
 
-    checks = [
-        ("fare_amount values > 0", "SELECT COUNT(*) FROM fact_trips WHERE fare_amount <= 0;"),
-        ("trip_distance values > 0", "SELECT COUNT(*) FROM fact_trips WHERE trip_distance <= 0;"),
-        ("fare_amount < 500", "SELECT COUNT(*) FROM fact_trips WHERE fare_amount >= 500;"),
-        ("trip_distance < 100", "SELECT COUNT(*) FROM fact_trips WHERE trip_distance >= 100;"),
-        ("NULL pickup_datetime", "SELECT COUNT(*) FROM fact_trips WHERE pickup_datetime IS NULL;"),
-    ]
+    checks = []
+
+    for col, rules in DATA_QUALITY_RULES.items():
+        if rules['max'] is None:
+            checks.append((f"{col} >= {rules['min']}", f"SELECT COUNT(*) FROM fact_trips WHERE {col} < {rules['min']};"))
+        else:
+            checks.append((f"{col} BETWEEN {rules['min']} AND {rules['max']}",
+                          f"SELECT COUNT(*) FROM fact_trips WHERE {col} < {rules['min']} OR {col} > {rules['max']};"))
+
+    checks.append(("NULL pickup_datetime", "SELECT COUNT(*) FROM fact_trips WHERE pickup_datetime IS NULL;"))
+    checks.append(("NULL dropoff_datetime", "SELECT COUNT(*) FROM fact_trips WHERE dropoff_datetime IS NULL;"))
+    checks.append(("Duplicate trip_ids", "SELECT COUNT(*) - COUNT(DISTINCT trip_id) FROM fact_trips;"))
 
     all_passed = True
     for name, query in checks:
-        success, output = run_psql(query)
+        success, output = run_psql(query, CONTAINERS['postgres'],
+                                   DB_CONFIG['user'], DB_CONFIG['database'],
+                                   TIMEOUTS['command'])
         if success:
             try:
                 count = int(output.strip())
                 passed = count == 0
-                print_check(f"{name}: {count} rows", passed)
+                detail = f"{count} rows" if count > 0 else "None"
+                print_check(f"{name}: {detail}", passed)
                 if not passed:
                     all_passed = False
             except ValueError:
@@ -219,6 +203,94 @@ def check_data_quality() -> bool:
             all_passed = False
 
     return all_passed
+
+
+def check_connection_pool() -> bool:
+    """Test connection pool."""
+    print_header("CONNECTION POOL")
+
+    try:
+        success, _ = run_psql(
+            "SELECT pg_is_in_recovery();",
+            CONTAINERS['postgres'], DB_CONFIG['user'], DB_CONFIG['database'],
+            TIMEOUTS['query']
+        )
+
+        if success:
+            print_check("Connection pool test passed", True)
+            return True
+        else:
+            print_check("Connection pool test failed", False)
+            return False
+    except Exception as e:
+        print_check("Connection pool test failed", False, str(e))
+        return False
+
+
+def check_query_performance() -> bool:
+    """Test query performance."""
+    print_header("QUERY PERFORMANCE")
+
+    test_queries = [
+        ("Count all rows", "SELECT COUNT(*) FROM fact_trips;"),
+        ("Sample data", "SELECT * FROM fact_trips LIMIT 100;"),
+    ]
+
+    all_passed = True
+    max_time = THRESHOLDS['response_time']['max_ms'] / 1000
+
+    for name, query in test_queries:
+        start_time = time.time()
+        success, _ = run_psql(
+            query,
+            CONTAINERS['postgres'], DB_CONFIG['user'], DB_CONFIG['database'],
+            TIMEOUTS['query']
+        )
+        elapsed = time.time() - start_time
+
+        if success:
+            status = elapsed < max_time
+            print_check(f"{name}: {elapsed:.3f}s", status)
+            if not status:
+                print_warning(f"Query took {elapsed:.3f}s, expected < {max_time:.3f}s")
+                all_passed = False
+        else:
+            print_check(f"{name}: Query failed", False)
+            all_passed = False
+
+    return all_passed
+
+
+def check_database_size() -> bool:
+    """Check database size."""
+    print_header("DATABASE SIZE")
+
+    success, output = run_psql(
+        "SELECT pg_database_size('warehouse');",
+        CONTAINERS['postgres'], DB_CONFIG['user'], DB_CONFIG['database'],
+        TIMEOUTS['query']
+    )
+
+    if success:
+        try:
+            size_bytes = int(output.strip())
+            size_mb = size_bytes / (1024 * 1024)
+            max_mb = THRESHOLDS['file_size']['max_mb']
+
+            print_check(f"Database size: {format_bytes(size_bytes)}", True)
+
+            if size_mb > max_mb:
+                print_warning(f"Database size {size_mb:.1f} MB exceeds recommended {max_mb} MB")
+                return True
+            else:
+                print_check(f"Database size within limits", True)
+                return True
+        except ValueError:
+            print_check("Could not parse database size", False)
+            return False
+    else:
+        print_check("Could not check database size", False)
+        return False
 
 
 def main() -> None:
@@ -236,23 +308,11 @@ def main() -> None:
         results['data_count'] = check_data_count()
         results['indexes'] = check_indexes()
         results['data_quality'] = check_data_quality()
+        results['connection_pool'] = check_connection_pool()
+        results['query_performance'] = check_query_performance()
+        results['database_size'] = check_database_size()
 
-    print_header("POSTGRESQL TROUBLESHOOTING SUMMARY")
-
-    passed = sum(1 for v in results.values() if v)
-    total = len(results)
-
-    print(f"\n  Total Checks: {total}")
-    print(f"  Passed: {passed}")
-    print(f"  Failed: {total - passed}")
-
-    if passed == total:
-        print(f"\n{Colors.GREEN}{Colors.BOLD}All PostgreSQL checks passed!{Colors.END}")
-        sys.exit(0)
-    else:
-        print(f"\n{Colors.YELLOW}{Colors.BOLD}Some PostgreSQL checks failed.{Colors.END}")
-        print(f"{Colors.YELLOW}Please fix the issues above before proceeding.{Colors.END}")
-        sys.exit(1)
+    print_summary(results, "POSTGRESQL TROUBLESHOOTING SUMMARY")
 
 
 if __name__ == "__main__":

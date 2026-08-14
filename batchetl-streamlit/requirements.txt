@@ -1,0 +1,7 @@
+# BatchETL Pipeline - Streamlit Cloud Dependencies
+# For live demo deployment
+
+pandas==2.0.3
+numpy==1.24.3
+streamlit==1.29.0
+plotly==5.18.0

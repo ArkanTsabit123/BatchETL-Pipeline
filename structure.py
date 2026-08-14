@@ -1,14 +1,9 @@
 # structure.py
 """
-Script to display project folder structure.
+Display project folder structure as a tree.
 
-Excludes:
-    - Virtual environment (venv/)
-    - Git directory (.git/)
-    - Cache directories (__pycache__, .pytest_cache)
-    - IDE directories (.vscode, .idea)
-    - Logs directory (logs/)
-    - Temporary files
+Excludes virtual environment, cache directories, IDE directories,
+logs, and temporary files.
 """
 
 from pathlib import Path
@@ -37,8 +32,6 @@ def show_tree(path: str = ".", prefix: str = "", exclude: Optional[List[str]] = 
             '.vscode', '.idea', '.vs', '.eclipse',
             # Logs & Temp
             'logs', 'log', 'tmp', 'temp',
-            # Data Files (keep .gitkeep)
-            '*.csv', '*.parquet', '*.db', '*.duckdb',
             # Docker
             '.docker',
             # OS
@@ -46,11 +39,12 @@ def show_tree(path: str = ".", prefix: str = "", exclude: Optional[List[str]] = 
             # Airflow
             'airflow.db', 'airflow.cfg', 'webserver_config.py',
             'plugins', '*.pid',
-            # Streamlit
-            '.streamlit',
-            # Verification Reports
+            # Verification Reports (generated files)
             'phase*_verification.json',
             'phase*_verification_report.txt',
+            # Data Files (large files - optional to show)
+            # Remove these if you want to see CSV/PARQUET files
+            # '*.csv', '*.parquet', '*.db', '*.duckdb',
             # Backup
             '*.bak', '*.tmp', '*.log',
         ]
@@ -76,7 +70,21 @@ def show_tree(path: str = ".", prefix: str = "", exclude: Optional[List[str]] = 
             extension = "    " if is_last else "│   "
             show_tree(str(item), prefix + extension, exclude)
         else:
-            print(f"{prefix}{connector}{item.name}")
+            # Display file size for better context
+            try:
+                size_bytes = item.stat().st_size
+                if size_bytes > 1024 * 1024 * 100:  # > 100 MB
+                    size_str = f"({size_bytes / (1024 * 1024):.0f} MB)"
+                elif size_bytes > 1024 * 1024:  # > 1 MB
+                    size_str = f"({size_bytes / (1024 * 1024):.1f} MB)"
+                elif size_bytes > 1024:  # > 1 KB
+                    size_str = f"({size_bytes / 1024:.1f} KB)"
+                else:
+                    size_str = ""
+            except Exception:
+                size_str = ""
+
+            print(f"{prefix}{connector}{item.name} {size_str}".strip())
 
 
 if __name__ == "__main__":

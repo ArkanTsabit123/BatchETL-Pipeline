@@ -1,6 +1,6 @@
-# scripts/extract.py
+# scripts/extract_local.py
 """
-Extract data from raw CSV and save to staging.
+Extract data from raw CSV and save to staging (Local Development).
 
 This module reads the NYC Taxi trip data from CSV file
 and saves it to the staging area for further processing.
@@ -19,9 +19,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def extract_data() -> str:
+def extract_data_local() -> str:
     """
-    Extract data from raw CSV and save to staging.
+    Extract data from raw CSV and save to staging (Local Development).
 
     Returns:
         str: Status message with row count.
@@ -31,16 +31,16 @@ def extract_data() -> str:
         Exception: For other extraction errors.
     """
     # Define paths
-    raw_path = '/opt/airflow/data/raw/taxi_data.csv'
-    staging_path = '/opt/airflow/data/staging/taxi_raw.csv'
+    raw_path = Path(__file__).parent.parent / 'data/raw/taxi_data.csv'
+    staging_path = Path(__file__).parent.parent / 'data/staging/taxi_raw.csv'
 
     try:
         # Check if raw file exists
-        if not os.path.exists(raw_path):
+        if not raw_path.exists():
             raise FileNotFoundError(f"Raw data file not found: {raw_path}")
 
         # Create staging directory if it doesn't exist
-        os.makedirs(os.path.dirname(staging_path), exist_ok=True)
+        staging_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Read CSV
         logger.info(f"Reading data from: {raw_path}")
@@ -56,13 +56,10 @@ def extract_data() -> str:
     except FileNotFoundError as e:
         logger.error(f"File not found: {str(e)}")
         raise
-    except pd.errors.EmptyDataError:
-        logger.error("CSV file is empty")
-        raise
     except Exception as e:
         logger.error(f"Extraction failed: {str(e)}")
         raise
 
 
 if __name__ == "__main__":
-    extract_data()
+    extract_data_local()

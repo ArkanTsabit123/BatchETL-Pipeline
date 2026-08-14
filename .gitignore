@@ -26,42 +26,10 @@ build/
 *.whl
 *.manifest
 *.spec
-*.pyc
-*.pyo
-*.pyd
-*.so
-*.egg
-*.egg-info/
-dist/
-build/
-*.whl
-*.manifest
-*.spec
-pip-wheel-metadata/
-share/python-wheels/
 
 # ============================================
 # Airflow
 # ============================================
-airflow.db
-airflow.cfg
-webserver_config.py
-logs/
-plugins/
-*.pid
-airflow-webserver.pid
-airflow-scheduler.pid
-airflow-worker.pid
-airflow-webserver.log
-airflow-scheduler.log
-airflow-worker.log
-airflow.db-journal
-airflow.db-wal
-airflow.db-shm
-airflow.cfg.bak
-standalone_admin_credentials.txt
-unittests.cfg
-airflow/*.pyc
 airflow.db
 airflow.cfg
 webserver_config.py
@@ -89,10 +57,6 @@ airflow/*.pyc
 docker-compose.override.yml
 *.dockerignore
 postgres_data/
-.docker/
-docker-compose.override.yml
-*.dockerignore
-postgres_data/
 
 # ============================================
 # PostgreSQL / Database
@@ -105,27 +69,16 @@ warehouse/*.log
 warehouse/*.wal
 warehouse/*.tmp
 warehouse/*.journal
-warehouse/*.duckdb
-warehouse/*.db
-warehouse/*.sqlite
-warehouse/*.sqlite3
-warehouse/*.log
-warehouse/*.wal
-warehouse/*.tmp
-warehouse/*.journal
 !warehouse/.gitkeep
 
 # ============================================
-# Data Files - Exclude all, keep .gitkeep
+# Data Files - Track sample, exclude large
 # ============================================
-data/*.csv
-data/*.xlsx
-data/*.xls
-data/*.parquet
-data/*.json
-data/*.db
-data/*.sqlite
-data/*.csv
+data/raw/*.csv
+!data/raw/.gitkeep
+data/staging/*.csv
+!data/staging/.gitkeep
+!data/staging/taxi_clean_sample.csv
 data/*.xlsx
 data/*.xls
 data/*.parquet
@@ -133,32 +86,10 @@ data/*.json
 data/*.db
 data/*.sqlite
 !data/.gitkeep
-data/raw/*.csv
-!data/raw/.gitkeep
-data/staging/*.csv
-!data/staging/.gitkeep
 
 # ============================================
 # IDE / Editor
 # ============================================
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-*.iml
-*.ipr
-*.iws
-.classpath
-.project
-.settings/
-.vs/
-*.code-workspace
-*.code-workspace.local
-.vscode-test/
-.idea_modules/
-*.komodoproject
 .vscode/
 .idea/
 *.swp
@@ -183,16 +114,6 @@ data/staging/*.csv
 # ============================================
 Thumbs.db
 desktop.ini
-.DS_Store
-*.log
-*.tmp
-*.temp
-.directory
-ehthumbs.db
-ehthumbs_vista.db
-Thumbs.db
-desktop.ini
-.DS_Store
 *.log
 *.tmp
 *.temp
@@ -203,11 +124,6 @@ ehthumbs_vista.db
 # ============================================
 # Streamlit
 # ============================================
-.streamlit/
-.streamlit/config.toml
-.streamlit/secrets.toml
-.streamlit/
-.streamlit/config.toml
 .streamlit/secrets.toml
 
 # ============================================
@@ -215,11 +131,6 @@ ehthumbs_vista.db
 # ============================================
 .ipynb_checkpoints/
 *.ipynb
-*.ipynb_checkpoints/
-*.nbconvert.ipynb
-.ipynb_checkpoints/
-*.ipynb
-*.ipynb_checkpoints/
 *.nbconvert.ipynb
 
 # ============================================
@@ -232,19 +143,6 @@ htmlcov/
 *.cover
 .mypy_cache/
 .ruff_cache/
-.pytest_cache/
-test-results/
-test-reports/
-junit.xml
-coverage.xml
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-*.cover
-.mypy_cache/
-.ruff_cache/
-.pytest_cache/
 test-results/
 test-reports/
 junit.xml
@@ -261,26 +159,10 @@ coverage.xml
 *.orig
 *.rej
 *.patch
-*.swp
-*.swo
-*~
-*.bak
-*.tmp
-*.temp
-*.backup
-*.old
-*.orig
-*.rej
-*.patch
-*.swp
-*.swo
-*~
 
 # ============================================
 # Verification Reports
 # ============================================
-phase*_verification.json
-phase*_verification_report.txt
 phase*_verification.json
 phase*_verification_report.txt
 
@@ -298,12 +180,6 @@ local.env
 *.local
 credentials.json
 .credentials.json
-local.env
-.env.local
-.env.*.local
-*.local
-credentials.json
-.credentials.json
 
 # ============================================
 # Security
@@ -315,25 +191,10 @@ credentials.json
 secrets/
 *.secret
 *.secrets
-*.key
-*.pem
-*.crt
-*.csr
-secrets/
-*.secret
-*.secrets
 
 # ============================================
-# Archive Files
+# Archive Files (generated)
 # ============================================
-*.zip
-*.tar.gz
-*.tgz
-*.rar
-*.7z
-*.bz2
-*.xz
-*.gz
 *.zip
 *.tar.gz
 *.tgz
@@ -348,18 +209,10 @@ secrets/
 # ============================================
 *.prof
 *.pyprof
-*.prof
-*.pyprof
 
 # ============================================
 # Documentation Build
 # ============================================
-docs/_build/
-docs/_static/
-docs/_templates/
-docs/build/
-docs/source/
-*.api
 docs/_build/
 docs/_static/
 docs/_templates/
@@ -376,21 +229,10 @@ poetry.lock
 pyproject.toml
 Pipfile
 poetry.toml
-.python-version
-Pipfile.lock
-poetry.lock
-pyproject.toml
-Pipfile
-poetry.toml
 
 # ============================================
 # MyPy / Pyre / Pytype
 # ============================================
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-.pytype/
 .mypy_cache/
 .dmypy.json
 dmypy.json
@@ -403,31 +245,16 @@ dmypy.json
 celerybeat-schedule
 celerybeat.pid
 celeryd.pid
-celerybeat-schedule
-celerybeat.pid
-celeryd.pid
 
 # ============================================
 # Flask
 # ============================================
 instance/
 .webassets-cache
-instance/
-.webassets-cache
 
 # ============================================
 # Node (if used)
 # ============================================
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-.pnpm
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -447,11 +274,6 @@ build/
 out/
 *.min.js
 *.min.css
-dist/
-build/
-out/
-*.min.js
-*.min.css
 
 # ============================================
 # Media Files (ignore large files)
@@ -463,23 +285,11 @@ out/
 *.mov
 *.mkv
 *.iso
-*.mp3
-*.wav
-*.mp4
-*.avi
-*.mov
-*.mkv
-*.iso
 
 # ============================================
-# Screenshots - KEEP THESE TRACKED
+# Screenshots - TRACK ALL SCREENSHOTS
 # ============================================
-!screenshots/
-!screenshots/*.png
-!screenshots/*.jpg
-!screenshots/*.jpeg
-!screenshots/*.PNG
-!screenshots/*.JPG
+# Do NOT ignore screenshots - they are documentation
 !screenshots/
 !screenshots/*.png
 !screenshots/*.jpg
@@ -493,11 +303,7 @@ out/
 dags/__pycache__/
 scripts/__pycache__/
 dashboard/__pycache__/
-*.pyc
-dags/__pycache__/
-scripts/__pycache__/
-dashboard/__pycache__/
-*.pyc
+batchetl-streamlit/__pycache__/
 
 # ============================================
 # Git
@@ -506,20 +312,10 @@ dashboard/__pycache__/
 .gitignore
 .gitattributes
 .gitmodules
-.git/
-.gitignore
-.gitattributes
-.gitmodules
 
 # ============================================
 # Server / Web Server
 # ============================================
-*.pid
-*.lock
-*.socket
-*.sock
-.htaccess
-.htpasswd
 *.pid
 *.lock
 *.socket
@@ -542,24 +338,3 @@ dashboard/__pycache__/
 *.secret.yml
 *.env.production
 *.env.staging
-/venv
-/__pycache__
-/.pytest_cache
-/.mypy_cache
-/.ruff_cache
-/data_volume
-/postgres_data
-/.docker-data
-*.secret.yaml
-*.secret.yml
-*.env.production
-*.env.staging
-
-
-# Archive folder
-archive/
-*.zip
-*.tar.gz
-*.rar
-*.7z
-*.py

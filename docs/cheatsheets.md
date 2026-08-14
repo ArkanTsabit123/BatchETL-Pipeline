@@ -1,8 +1,41 @@
-# BatchETL Pipeline - Cheat Sheet (Apache Airflow with Docker)
+# BATCHETL PIPELINE - CHEAT SHEET
 
 ---
 
-## Quick Commands
+## Document Information
+
+| Property | Value |
+|----------|-------|
+| Version | 2.1.0 |
+| Last Updated | 2026-08-15 |
+| Purpose | Quick reference for development and deployment |
+
+---
+
+## Table of Contents
+
+1. [Quick Commands](#1-quick-commands)
+2. [Docker Commands](#2-docker-commands)
+3. [Airflow Commands](#3-airflow-commands)
+4. [Database Commands](#4-database-commands)
+5. [Python Package Management](#5-python-package-management)
+6. [Running the Pipeline](#6-running-the-pipeline)
+7. [Dashboard Configuration](#7-dashboard-configuration)
+8. [Project Structure Quick Reference](#8-project-structure-quick-reference)
+9. [Troubleshooting](#9-troubleshooting)
+10. [DAG Structure Template](#10-dag-structure-template)
+11. [One-Liner Commands](#11-one-liner-commands)
+12. [Important URLs](#12-important-urls)
+13. [Documentation Links](#13-documentation-links)
+14. [Quick Tips](#14-quick-tips)
+15. [File Paths Reference](#15-file-paths-reference)
+16. [Environment Variables](#16-environment-variables)
+17. [Verification Commands](#17-verification-commands)
+18. [Pipeline Execution Results](#18-pipeline-execution-results)
+
+---
+
+## 1. Quick Commands
 
 ### Virtual Environment
 
@@ -40,9 +73,9 @@ rm -rf venv
 
 ---
 
-## Docker Commands
+## 2. Docker Commands
 
-### Start & Stop Services
+### Start and Stop Services
 
 ```bash
 # Start all services (PostgreSQL, Airflow, Streamlit)
@@ -69,7 +102,7 @@ docker-compose restart
 docker-compose restart airflow
 ```
 
-### Container Status & Logs
+### Container Status and Logs
 
 ```bash
 # Check container status
@@ -145,13 +178,12 @@ PostgreSQL:
 | Airflow UI | 8080 | 8080 | batch-etl-airflow |
 | PostgreSQL | 5432 | 5432 | batch-etl-postgres |
 | Streamlit | 8501 | 8501 | batch-etl-streamlit |
-| MySQL (optional) | 3306 | 3306 | batch-etl-mysql |
 
 ---
 
-## Airflow Commands
+## 3. Airflow Commands
 
-**Note:** Run these inside the Airflow container or via `docker exec`
+**Note:** Run these commands inside the Airflow container or via `docker exec`
 
 ### DAG Management
 
@@ -215,7 +247,7 @@ exit
 
 ---
 
-## Database Commands
+## 4. Database Commands
 
 ### PostgreSQL
 
@@ -233,36 +265,17 @@ docker exec -it batch-etl-postgres psql -U admin -d warehouse -c "SELECT COUNT(*
 docker exec -it batch-etl-postgres psql -U admin -d warehouse -c "\COPY (SELECT * FROM fact_trips) TO '/tmp/output.csv' CSV HEADER;"
 ```
 
-### MySQL (if used)
-
-```bash
-# Connect via docker exec
-docker exec -it batch-etl-mysql mysql -u admin -p warehouse
-
-# Connect with password directly
-docker exec -it batch-etl-mysql mysql -u admin -padmin warehouse
-
-# Connect with custom host/port
-mysql -h localhost -P 3306 -u admin -p warehouse
-
-# Execute single query
-docker exec -it batch-etl-mysql mysql -u admin -padmin warehouse -e "SELECT COUNT(*) FROM fact_trips;"
-```
-
 ### Useful SQL Queries
 
 ```sql
 -- List all tables
-\dt                 -- PostgreSQL
-SHOW TABLES;        -- MySQL
+\dt
 
 -- List all indexes
-\di                 -- PostgreSQL
-SHOW INDEX FROM fact_trips;  -- MySQL
+\di
 
 -- Describe table structure
-\d fact_trips       -- PostgreSQL
-DESCRIBE fact_trips;         -- MySQL
+\d fact_trips
 
 -- Count total rows
 SELECT COUNT(*) FROM fact_trips;
@@ -300,14 +313,13 @@ FROM fact_trips
 GROUP BY payment_type
 ORDER BY revenue DESC;
 
--- Exit psql/mysql
-\q                  -- PostgreSQL
-exit;               -- MySQL
+-- Exit psql
+\q
 ```
 
 ---
 
-## Python Package Management
+## 5. Python Package Management
 
 ### Technology Versions
 
@@ -315,12 +327,12 @@ exit;               -- MySQL
 |------|---------|
 | Apache Airflow | 2.7.3 |
 | PostgreSQL | 15 |
-| MySQL | 8.0 |
 | Streamlit | 1.29.0 |
 | Pandas | 2.0.3 |
-| SQLAlchemy | 2.0.19 |
+| SQLAlchemy | 1.4.50 |
 | Plotly | 5.18.0 |
 | Python | 3.10+ |
+| psycopg2-binary | 2.9.9 |
 
 ### Install Dependencies
 
@@ -369,7 +381,7 @@ python -c "import airflow; print(f'Airflow {airflow.__version__} OK')"
 
 ---
 
-## Running the Pipeline
+## 6. Running the Pipeline
 
 ### Quick Start
 
@@ -429,46 +441,46 @@ docker exec -it batch-etl-postgres psql -U admin -d warehouse -c "SELECT * FROM 
 
 ---
 
-## Dashboard Configuration
+## 7. Dashboard Configuration
 
-### Mengubah Jumlah Data yang Ditampilkan
+### Data Limit Configuration
 
-Dashboard secara default menampilkan **100,000 baris** data untuk performa cepat. Untuk menampilkan **SEMUA data** (19+ juta rows), ubah `DATA_LIMIT` di `dashboard/app.py`:
+Dashboard by default displays 100,000 rows for fast performance. To change:
 
 ```python
-# dashboard/app.py - Baris ~25
+# dashboard/app.py - Line ~25
 
-# Untuk 100,000 baris (default - cepat)
+# For 100,000 rows (default - fast)
 DATA_LIMIT = 100000
 
-# Untuk SEMUA data (lengkap tapi lambat)
+# For ALL data (full - slower)
 DATA_LIMIT = None
 
-# Untuk jumlah kustom (misal 500,000)
+# For custom amount (e.g., 500,000)
 DATA_LIMIT = 500000
 ```
 
-### Perbandingan Mode
+### Mode Comparison
 
-| Mode | `DATA_LIMIT` | Kecepatan | Akurasi | Penggunaan |
-|------|--------------|-----------|---------|------------|
-| **Default** | `100000` | ⚡ Sangat Cepat | ❌ Sample saja | Demo, testing, screenshot |
-| **Full Data** | `None` | 🐌 Lambat (30-60s) | ✅ 100% akurat | Analisis serius |
-| **Kustom** | `500000` | ⚡ Cukup Cepat | ⚠️ Sebagian | Balance performa & akurasi |
+| Mode | DATA_LIMIT | Speed | Accuracy | Use Case |
+|------|--------------|-------|----------|----------|
+| Default | 100000 | Very Fast | Sample only | Demo, testing, screenshots |
+| Full Data | None | Slow (30-60s) | 100% accurate | Serious analysis |
+| Custom | 500000 | Fast | Partial | Balance performance and accuracy |
 
-### Query yang Dihasilkan
+### Query Generated
 
 ```python
-# Fungsi load_trip_data() akan menghasilkan query:
+# Function load_trip_data() generates:
 if DATA_LIMIT:
     query = f"SELECT * FROM fact_trips ORDER BY trip_id LIMIT {DATA_LIMIT}"
 else:
-    query = "SELECT * FROM fact_trips ORDER BY trip_id"  # Tanpa LIMIT
+    query = "SELECT * FROM fact_trips ORDER BY trip_id"  # No LIMIT
 ```
 
-### Setelah Ubah DATA_LIMIT
+### After Changing DATA_LIMIT
 
-**Jika pakai Docker:**
+**If using Docker:**
 ```bash
 # Rebuild container
 docker-compose stop streamlit
@@ -476,81 +488,46 @@ docker-compose rm -f streamlit
 docker-compose build --no-cache streamlit
 docker-compose up -d streamlit
 
-# Cek log
+# Check logs
 docker logs batch-etl-streamlit -f
 ```
 
-**Jika pakai Local:**
+**If using Local:**
 ```bash
-# Stop (Ctrl+C), lalu jalankan ulang
+# Stop (Ctrl+C), then restart
 streamlit run dashboard/app.py
 ```
 
-### Troubleshooting: Error "LIMIT None"
+### Performance Tips
 
-Jika muncul error:
-```
-psycopg2.errors.UndefinedColumn: column "none" does not exist
-LINE 5: LIMIT None
-```
-
-**Penyebab:** `DATA_LIMIT = None` menghasilkan `LIMIT None` di SQL (tidak valid).
-
-**Solusi:** Gunakan kode berikut di `dashboard/app.py`:
-
-```python
-@st.cache_data(ttl=CACHE_TTL)
-def load_trip_data() -> pd.DataFrame:
-    try:
-        engine = get_database_engine()
-        
-        if DATA_LIMIT:
-            query = f"""
-                SELECT *
-                FROM fact_trips
-                ORDER BY trip_id
-                LIMIT {DATA_LIMIT}
-            """
-        else:
-            query = """
-                SELECT *
-                FROM fact_trips
-                ORDER BY trip_id
-            """
-        
-        return pd.read_sql(query, engine)
-    except Exception as e:
-        raise Exception(f"Database connection failed: {str(e)}")
-```
-
-### Tips Performa
-
-| Data Size | Waktu Load | RAM yang Dibutuhkan |
-|-----------|------------|---------------------|
-| 100,000 rows | ~2-5 detik | ~200 MB |
-| 1,000,000 rows | ~10-15 detik | ~800 MB |
-| 19,217,150 rows | ~30-60 detik | ~2-3 GB |
+| Data Size | Load Time | RAM Required |
+|-----------|-----------|--------------|
+| 100,000 rows | 2-5 seconds | ~200 MB |
+| 1,000,000 rows | 10-15 seconds | ~800 MB |
+| 2,869,525 rows | 30-60 seconds | ~2-3 GB |
+| 20,117,150 rows | 60-120 seconds | ~4-5 GB |
 
 ---
 
-## Project Structure Quick Reference
+## 8. Project Structure Quick Reference
 
 | Folder | Content |
 |--------|---------|
-| `archive/` | Diagram generator scripts (architecture, data flow, ERD) |
-| `dags/` | Airflow DAG files (etl_pipeline.py) |
-| `scripts/` | ETL Python scripts (extract, transform, load) |
-| `data/raw/` | Raw dataset (taxi_data.csv - 2.96M rows) |
-| `data/staging/` | Intermediate files (taxi_raw.csv, taxi_clean.csv) |
-| `warehouse/` | Database initialization (init.sql) |
-| `dashboard/` | Streamlit app (app.py) + Dockerfile |
-| `screenshots/` | Documentation screenshots (19 images) - ✅ COMPLETED |
-| `docs/` | Documentation files (blueprint, cheatsheet, checklist) |
-| `docs/diagrams/` | Diagram source files (PDF, XML, DBML, drawio, MWB) |
+| archive/ | Diagram generator scripts (architecture, data flow, ERD) |
+| dags/ | Airflow DAG files (etl_pipeline.py) |
+| scripts/ | ETL Python scripts (extract, transform, load) |
+| data/raw/ | Raw dataset (taxi_data.csv - 2.96M rows) |
+| data/staging/ | Intermediate files (taxi_raw.csv, taxi_clean.csv) |
+| warehouse/ | Database initialization (init.sql) |
+| dashboard/ | Streamlit app (app.py) + Dockerfile |
+| screenshots/ | Documentation screenshots |
+| docs/ | Documentation files (blueprint, cheatsheet, checklist) |
+| docs/diagrams/ | Diagram source files (PDF, XML, DBML, drawio, MWB) |
+| batchetl-streamlit/ | Streamlit Cloud deployment files |
 
 ---
 
-## Troubleshooting
+## 9. Troubleshooting
 
 ### Docker Issues
 
@@ -558,9 +535,9 @@ def load_trip_data() -> pd.DataFrame:
 |-------|----------|
 | Docker not running | Start Docker Desktop first |
 | Port already in use | Change port in docker-compose.yml |
-| Container not starting | `docker-compose logs` to see errors |
+| Container not starting | docker-compose logs to see errors |
 | Permission denied | Run terminal as admin |
-| Volume conflicts | `docker-compose down -v` |
+| Volume conflicts | docker-compose down -v |
 | Image pull failed | Check internet connection |
 | Container exits immediately | Check logs for error messages |
 
@@ -588,20 +565,20 @@ def load_trip_data() -> pd.DataFrame:
 | Duplicate key error | Check primary key constraints, clear data |
 | Encoding issues | Set proper encoding in connection string |
 
-### Common Errors & Solutions
+### Common Errors and Solutions
 
 | Error | Solution |
 |-------|----------|
-| `ModuleNotFoundError` | `pip install -r requirements.txt` (activate venv first) |
-| `ImportError: cannot import name` | Check package version compatibility |
-| `Port 8080 already in use` | Change host port in docker-compose.yml |
-| `No such file: taxi_data.csv` | Download dataset to `data/raw/` |
-| `Connection refused` | Start Docker first and wait for services |
-| `No data in dashboard` | Run DAG first to load data |
-| `DAG not found in UI` | Check file in `dags/` folder, wait 30s |
-| `airflow: command not found` | Use `docker exec` or install airflow locally |
-| `Permission denied: /var/run/docker.sock` | Add user to docker group or run as admin |
-| `SQLAlchemy error` | Check DATABASE_URL in environment variables |
+| ModuleNotFoundError | pip install -r requirements.txt (activate venv first) |
+| ImportError: cannot import name | Check package version compatibility |
+| Port 8080 already in use | Change host port in docker-compose.yml |
+| No such file: taxi_data.csv | Download dataset to data/raw/ |
+| Connection refused | Start Docker first and wait for services |
+| No data in dashboard | Run DAG first to load data |
+| DAG not found in UI | Check file in dags/ folder, wait 30s |
+| airflow: command not found | Use docker exec or install airflow locally |
+| Permission denied: /var/run/docker.sock | Add user to docker group or run as admin |
+| SQLAlchemy error | Check DATABASE_URL in environment variables |
 
 ### Quick Troubleshooting Flow
 
@@ -636,7 +613,7 @@ docker stats
 
 ---
 
-## DAG Structure Template
+## 10. DAG Structure Template
 
 ```python
 from airflow import DAG
@@ -654,7 +631,6 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-# Modern approach with context manager
 with DAG(
     dag_id='dag_name',
     default_args=default_args,
@@ -668,19 +644,16 @@ with DAG(
     def extract_task(**context):
         """Extract data from source"""
         print("Extracting data...")
-        # Your extraction logic here
         return "Extraction complete"
 
     def transform_task(**context):
         """Transform extracted data"""
         print("Transforming data...")
-        # Your transformation logic here
         return "Transformation complete"
 
     def load_task(**context):
         """Load transformed data"""
         print("Loading data...")
-        # Your load logic here
         return "Load complete"
 
     extract = PythonOperator(
@@ -698,15 +671,15 @@ with DAG(
         python_callable=load_task,
     )
 
-    # Define task dependencies
     extract >> transform >> load
 ```
 
 ---
 
-## One-Liner Commands
+## 11. One-Liner Commands
 
 ### Setup
+
 ```bash
 # Complete project setup (Windows PowerShell)
 python -m venv venv && venv\Scripts\Activate.ps1 && pip install -r requirements.txt
@@ -725,6 +698,7 @@ docker-compose down -v && rm -rf venv && python -m venv venv
 ```
 
 ### Start Everything
+
 ```bash
 # Windows PowerShell
 venv\Scripts\Activate.ps1; docker-compose up -d; start http://localhost:8080; start http://localhost:8501
@@ -737,6 +711,7 @@ source venv/bin/activate && docker-compose up -d && open http://localhost:8080 &
 ```
 
 ### Data Verification
+
 ```bash
 # Check row count in PostgreSQL
 docker exec -it batch-etl-postgres psql -U admin -d warehouse -c "SELECT COUNT(*) FROM fact_trips;"
@@ -749,6 +724,7 @@ docker exec -it batch-etl-airflow airflow dags list-runs --dag-id etl_pipeline -
 ```
 
 ### Cleanup
+
 ```bash
 # Stop all containers and remove volumes
 docker-compose down -v
@@ -762,25 +738,23 @@ rm -rf venv __pycache__ .pytest_cache
 
 ---
 
-## Important URLs
+## 12. Important URLs
 
 | Service | URL |
 |---------|-----|
 | Airflow UI | http://localhost:8080 |
 | Streamlit Dashboard | http://localhost:8501 |
 | PostgreSQL | localhost:5432 |
-| MySQL | localhost:3306 |
 | NYC Taxi Data | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
 
 ---
 
-## Documentation Links
+## 13. Documentation Links
 
 | Resource | URL |
 |----------|-----|
 | Airflow Docs | https://airflow.apache.org/docs/ |
 | PostgreSQL Docs | https://www.postgresql.org/docs/ |
-| MySQL Docs | https://dev.mysql.com/doc/ |
 | Streamlit Docs | https://docs.streamlit.io/ |
 | Plotly Docs | https://plotly.com/python/ |
 | Pandas Docs | https://pandas.pydata.org/docs/ |
@@ -789,55 +763,146 @@ rm -rf venv __pycache__ .pytest_cache
 
 ---
 
-## Quick Tips
+## 14. Quick Tips
 
-1. **Always use Docker on Windows** for Airflow
-2. **Activate venv** before working with Python locally
-3. **Check `docker-compose ps`** to ensure all services are running
-4. **Use `docker-compose logs -f`** to monitor in real-time
-5. **Wait for database initialization** (10-15 seconds) before triggering DAG
-6. **Restart Airflow** after adding new DAGs
-7. **Check ports** if services won't start (8080, 5432, 8501)
-8. **Trigger DAG manually first**, then schedule will work
-9. **Use verification scripts** to check each phase
-10. **Screenshots should be 300+ DPI** for documentation
-11. **Use `--no-cache-dir`** with pip to save disk space
-12. **Set environment variables** in `.env` file for sensitive data
-13. **Use `docker exec`** for Airflow commands to avoid local installation
-14. **Clear task instances** when retrying failed tasks
-15. **Monitor resource usage** with `docker stats`
+1. Always use Docker on Windows for Airflow
+2. Activate venv before working with Python locally
+3. Check docker-compose ps to ensure all services are running
+4. Use docker-compose logs -f to monitor in real-time
+5. Wait for database initialization (10-15 seconds) before triggering DAG
+6. Restart Airflow after adding new DAGs
+7. Check ports if services won't start (8080, 5432, 8501)
+8. Trigger DAG manually first, then schedule will work
+9. Use verification scripts to check each phase
+10. Screenshots should be 300+ DPI for documentation
+11. Use --no-cache-dir with pip to save disk space
+12. Set environment variables in .env file for sensitive data
+13. Use docker exec for Airflow commands to avoid local installation
+14. Clear task instances when retrying failed tasks
+15. Monitor resource usage with docker stats
 
 ---
 
-## File Paths Reference
+## 15. File Paths Reference
 
 | File | Path |
 |------|------|
-| DAG | `dags/etl_pipeline.py` |
-| Extract Script | `scripts/extract.py` |
-| Transform Script | `scripts/transform.py` |
-| Load Script | `scripts/load.py` |
-| Dashboard | `dashboard/app.py` |
-| Dashboard Dockerfile | `dashboard/Dockerfile` |
-| Raw Data | `data/raw/taxi_data.csv` |
-| Staging Data | `data/staging/taxi_raw.csv` |
-| Clean Data | `data/staging/taxi_clean.csv` |
-| Init SQL | `warehouse/init.sql` |
-| Docker Compose | `docker-compose.yml` |
-| Requirements | `requirements.txt` |
-| Environment | `.env` |
-| Blueprint | `docs/blueprint.md` |
-| Cheatsheet | `docs/cheatsheet.md` |
-| Verification Checklist | `docs/verification-checklist.md` |
-| Architecture Diagram Script | `archive/architecture-diagram.py` |
-| Data Flow Diagram Script | `archive/data-flow-diagram.py` |
-| ERD Diagram Script | `archive/erd-diagram.py` |
-| Architecture Diagram | `screenshots/architecture-diagram.png` |
-| Data Flow Diagram | `screenshots/data-flow-diagram.png` |
-| ERD Diagram | `screenshots/erd-diagram.png` |
-| ERD DBML | `docs/diagrams/erd-diagram.dbml` |
-| ERD Drawio | `docs/diagrams/erd-diagram.drawio` |
-| ERD MySQL Workbench | `docs/diagrams/erd-diagram.mwb` |
+| DAG | dags/etl_pipeline.py |
+| Extract Script | scripts/extract.py |
+| Transform Script | scripts/transform.py |
+| Load Script | scripts/load.py |
+| Dashboard | dashboard/app.py |
+| Dashboard Dockerfile | dashboard/Dockerfile |
+| Raw Data | data/raw/taxi_data.csv |
+| Staging Data | data/staging/taxi_raw.csv |
+| Clean Data | data/staging/taxi_clean.csv |
+| Sample Data | data/staging/taxi_clean_sample.csv |
+| Init SQL | warehouse/init.sql |
+| Docker Compose | docker-compose.yml |
+| Requirements | requirements.txt |
+| Environment | .env |
+| Blueprint | docs/blueprint.md |
+| Cheatsheet | docs/cheatsheets.md |
+| Verification Checklist | docs/verification-checklist.md |
+| Architecture Diagram Script | archive/architecture-diagram.py |
+| Data Flow Diagram Script | archive/data-flow-diagram.py |
+| ERD Diagram Script | archive/erd-diagram.py |
+| Architecture Diagram | screenshots/architecture-diagram.png |
+| Data Flow Diagram | screenshots/data-flow-diagram.png |
+| ERD Diagram | screenshots/erd-diagram.png |
+
+---
+
+## 16. Environment Variables
+
+### Required Environment Variables
+
+```bash
+# .env file example
+AIRFLOW_UID=50000
+AIRFLOW_GID=50000
+POSTGRES_USER=admin
+POSTGRES_PASSWORD=admin
+POSTGRES_DB=warehouse
+POSTGRES_PORT=5432
+DATA_PATH=./data
+AIRFLOW__CORE__LOAD_EXAMPLES=False
+AIRFLOW__WEBSERVER__SECRET_KEY=your-secret-key-here
+AIRFLOW_CONN_POSTGRES=postgresql://admin:admin@postgres:5432/warehouse
+PYTHONPATH=/opt/airflow
+```
+
+### Set Environment Variables
+
+```bash
+# Windows PowerShell
+$env:AIRFLOW_UID="50000"
+$env:POSTGRES_PASSWORD="admin"
+
+# Windows CMD
+set AIRFLOW_UID=50000
+set POSTGRES_PASSWORD=admin
+
+# Mac/Linux
+export AIRFLOW_UID=50000
+export POSTGRES_PASSWORD=admin
+```
+
+---
+
+## 17. Verification Commands
+
+### Run All Verifications
+
+```bash
+python run_all_verifications.py
+```
+
+### Individual Phase Verification
+
+```bash
+python verify-phase-1.py
+python verify-phase-2.py
+python verify-phase-3.py
+python verify-phase-4.py
+python verify-phase-5.py
+python verify-phase-6.py
+python verify-phase-7.py
+python verify-phase-8.py
+python verify-phase-9.py
+```
+
+### Troubleshooting Modules
+
+```bash
+python troubleshoot.py
+python troubleshoot_docker.py
+python troubleshoot_airflow.py
+python troubleshoot_postgres.py
+python troubleshoot_dashboard.py
+python troubleshoot_network.py
+```
+
+---
+
+## 18. Pipeline Execution Results
+
+### Actual Execution Results
+
+| Phase | Rows | Time | Status |
+|-------|------|------|--------|
+| Extract | 2,964,624 | 43 seconds | SUCCESS |
+| Transform | 2,869,525 | 27 seconds | SUCCESS |
+| Load | 2,869,525 | ~4-5 minutes | SUCCESS |
+| **Total** | **2,869,525** | **~5-6 minutes** | **SUCCESS** |
+
+### Database Results
+
+| Metric | Value |
+|--------|-------|
+| Existing Rows | 19,217,150 |
+| New Rows Loaded | 2,869,525 |
+| **Total Rows in DB** | **22,086,675** |
 
 ---
 
@@ -880,13 +945,16 @@ docker exec -it batch-etl-airflow airflow dags list-runs --dag-id etl_pipeline
 # CLEAR TASKS
 docker exec -it batch-etl-airflow airflow tasks clear -d etl_pipeline
 
+# CHECK DATA
+docker exec -it batch-etl-postgres psql -U admin -d warehouse -c "SELECT COUNT(*) FROM fact_trips;"
+
 # VIEW AIRFLOW LOGS
 docker-compose logs airflow -f
 
 # RUN SCRIPTS MANUALLY
 python scripts/extract.py && python scripts/transform.py && python scripts/load.py
 
-# RUN ALL VERIFICATIONS
+# RUN VERIFICATIONS
 python run_all_verifications.py
 
 # DOCKER CLEANUP
@@ -894,42 +962,12 @@ docker system prune -f
 
 # NETWORK INFO
 docker network inspect batchetlpipeline_batch-etl-network
+
+# FULL RESET
+docker-compose down -v && docker-compose up -d
 ```
 
 ---
 
-## Environment Variables
-
-### Required Environment Variables
-
-```bash
-# .env file example
-AIRFLOW_UID=50000
-AIRFLOW_GID=50000
-POSTGRES_USER=admin
-POSTGRES_PASSWORD=admin
-POSTGRES_DB=warehouse
-POSTGRES_PORT=5432
-MYSQL_USER=admin
-MYSQL_PASSWORD=admin
-MYSQL_DATABASE=warehouse
-MYSQL_PORT=3306
-DATA_PATH=./data
-AIRFLOW__CORE__LOAD_EXAMPLES=False
-```
-
-### Set Environment Variables
-
-```bash
-# Windows PowerShell
-$env:AIRFLOW_UID="50000"
-$env:POSTGRES_PASSWORD="admin"
-
-# Windows CMD
-set AIRFLOW_UID=50000
-set POSTGRES_PASSWORD=admin
-
-# Mac/Linux
-export AIRFLOW_UID=50000
-export POSTGRES_PASSWORD=admin
-```
+*Last Updated: 2026-08-15*
+*Version: 2.1.0*

@@ -1,6 +1,6 @@
 # verify-phase-1.py
 """
-Phase 1: Setup & Environment Verification
+Phase 1: Setup and Environment Verification
 
 Checks performed:
     - Folder structure
@@ -177,14 +177,14 @@ class PhaseVerifier:
 
 
 # ============================================
-# Phase 1: Setup & Environment
+# Phase 1: Setup and Environment
 # ============================================
 
 class Phase1Verifier(PhaseVerifier):
-    """Verifier for Phase 1: Setup & Environment."""
+    """Verifier for Phase 1: Setup and Environment."""
 
     def __init__(self):
-        super().__init__(1, "Setup & Environment")
+        super().__init__(1, "Setup and Environment")
 
     def check_folder_structure(self) -> bool:
         """Verify required folders exist."""
@@ -198,6 +198,7 @@ class Phase1Verifier(PhaseVerifier):
             ('dags', 'Airflow DAGs'),
             ('scripts', 'ETL Python scripts'),
             ('screenshots', 'Documentation screenshots'),
+            ('docs', 'Documentation files'),
         ]
 
         all_exist = True
@@ -248,7 +249,7 @@ class Phase1Verifier(PhaseVerifier):
 
     def check_requirements(self) -> bool:
         """Verify requirements and libraries."""
-        self.print_section("Requirements & Libraries")
+        self.print_section("Requirements and Libraries")
 
         req_file = self.project_root / 'requirements.txt'
         exists = req_file.exists()
@@ -379,19 +380,16 @@ class Phase1Verifier(PhaseVerifier):
         self.print_section("Documentation Files")
 
         docs = [
-            ('README.md', 'Main documentation'),
             ('blueprint.md', 'Technical blueprint'),
             ('cheatsheets.md', 'Quick reference'),
-            ('verification checklist.md', 'Testing checklist')
+            ('verification-checklist.md', 'Testing checklist')
         ]
 
         all_exist = True
         for doc, description in docs:
-            # Cek di root atau docs folder
-            root_path = self.project_root / doc
             docs_path = self.project_root / 'docs' / doc
-            exists = root_path.exists() or docs_path.exists()
-            self.print_check(f"{doc}", exists, description)
+            exists = docs_path.exists()
+            self.print_check(f"{doc} (docs/)", exists, description)
             if not exists:
                 all_exist = False
 
@@ -427,6 +425,40 @@ class Phase1Verifier(PhaseVerifier):
             self.add_result('git_remote', False, 'Git not available')
             return False
 
+    def check_readme_exists(self) -> bool:
+        """Verify README.md exists."""
+        self.print_section("README File")
+
+        readme_path = self.project_root / 'README.md'
+        exists = readme_path.exists()
+
+        if exists:
+            size_kb = readme_path.stat().st_size / 1024
+            self.print_check("README.md exists", True, f"{size_kb:.1f} KB")
+            self.add_result('readme_exists', True, 'README.md found')
+            return True
+        else:
+            self.print_check("README.md NOT found", False, "Create README.md in root")
+            self.add_result('readme_exists', False, 'README.md missing')
+            return False
+
+    def check_license_exists(self) -> bool:
+        """Verify LICENSE exists."""
+        self.print_section("License File")
+
+        license_path = self.project_root / 'LICENSE'
+        exists = license_path.exists()
+
+        if exists:
+            size_kb = license_path.stat().st_size / 1024
+            self.print_check("LICENSE exists", True, f"{size_kb:.1f} KB")
+            self.add_result('license_exists', True, 'LICENSE found')
+            return True
+        else:
+            self.print_check("LICENSE NOT found", False, "Add MIT License")
+            self.add_result('license_exists', False, 'LICENSE missing')
+            return False
+
     def run(self) -> bool:
         """Run all Phase 1 checks."""
         self.check_folder_structure()
@@ -439,6 +471,8 @@ class Phase1Verifier(PhaseVerifier):
         self.check_database_init()
         self.check_documentation_files()
         self.check_git_remote()
+        self.check_readme_exists()
+        self.check_license_exists()
 
         self.display_summary()
         self.save_json_report()

@@ -1,5 +1,10 @@
-streamlit==1.29.0
+# BatchETL Pipeline - Dashboard Dependencies
+# For Streamlit dashboard running in Docker
+
 pandas==2.0.3
-plotly==5.18.0
-sqlalchemy==2.0.19
+numpy==1.24.3
 psycopg2-binary==2.9.9
+sqlalchemy==2.0.19
+streamlit==1.29.0
+plotly==5.18.0
+python-dotenv==1.0.0

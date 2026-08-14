@@ -1,84 +1,23 @@
-# ============================================
-# BATCHETL PIPELINE - .GITIGNORE
-# ============================================
+# BatchETL Pipeline - Root Dependencies
+# For local development with Docker
 
-# Virtual Environment
-venv/
-env/
-ENV/
-.venv/
+# Core Data Processing
+pandas==2.0.3
+numpy==1.24.3
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.so
-*.egg
-*.egg-info/
-dist/
-build/
-*.whl
+# Database
+psycopg2-binary==2.9.9
+sqlalchemy==1.4.50
 
-# Airflow
-airflow.db
-airflow.cfg
-webserver_config.py
-logs/
-plugins/
-*.pid
+# Dashboard
+streamlit==1.29.0
+plotly==5.18.0
 
-# Docker
-.docker/
-docker-compose.override.yml
+# Orchestration
+apache-airflow==2.7.3
 
-# PostgreSQL
-postgres_data/
-*.duckdb
-*.db
-*.log
+# Utilities
+python-dotenv==1.0.0
+requests==2.31.0
 
-# Data Files (keep .gitkeep to preserve empty folders)
-data/raw/*.csv
-data/staging/*.csv
-!data/raw/.gitkeep
-!data/staging/.gitkeep
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
-
-# OS
-Thumbs.db
-desktop.ini
-
-# Logs
-logs/
-*.log
-
-# Streamlit
-.streamlit/
-.streamlit/config.toml
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Environment
-.env
-.env.local
-
-# Backup
-*.bak
-*.tmp
-*.zip
-*.tar.gz
-
-# Temporary files
-/tmp/
-*.tmp
+# Verification Scripts (no additional dependencies needed)

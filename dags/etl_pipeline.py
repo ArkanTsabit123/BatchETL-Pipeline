@@ -28,6 +28,7 @@ START_DATE = datetime(2026, 7, 1)
 CATCHUP = False
 RETRIES = 1
 RETRY_DELAY = timedelta(minutes=5)
+MAX_ACTIVE_RUNS = 1
 
 default_args = {
     'owner': 'data_engineer',
@@ -46,6 +47,7 @@ dag = DAG(
     description='Extract, Transform, Load NYC Taxi Data',
     schedule_interval=SCHEDULE_INTERVAL,
     catchup=CATCHUP,
+    max_active_runs=MAX_ACTIVE_RUNS,
     tags=['etl', 'batch', 'taxi', 'nyc'],
 )
 

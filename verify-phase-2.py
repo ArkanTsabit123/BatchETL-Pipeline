@@ -1,6 +1,6 @@
 # verify-phase-2.py
 """
-Phase 2: Docker & Container Setup Verification
+Phase 2: Docker and Container Setup Verification
 
 Checks performed:
     - Docker daemon running
@@ -14,6 +14,7 @@ Checks performed:
     - Docker volumes created
     - Docker network created
     - Streamlit dashboard accessible
+    - docker-compose.yml exists
 """
 
 import os
@@ -180,14 +181,14 @@ class PhaseVerifier:
 
 
 # ============================================
-# Phase 2: Docker & Container Setup
+# Phase 2: Docker and Container Setup
 # ============================================
 
 class Phase2Verifier(PhaseVerifier):
-    """Verifier for Phase 2: Docker & Container Setup."""
+    """Verifier for Phase 2: Docker and Container Setup."""
 
     def __init__(self):
-        super().__init__(2, "Docker & Container Setup")
+        super().__init__(2, "Docker and Container Setup")
 
     def _run_docker_command(self, command: List[str]) -> Tuple[bool, str]:
         """Run a docker command and return status and output."""
@@ -226,6 +227,21 @@ class Phase2Verifier(PhaseVerifier):
         self.add_result('docker_daemon', success, 'Docker daemon ready' if success else 'Docker daemon not running')
         return success
 
+    def check_compose_file(self) -> bool:
+        """Verify docker-compose.yml exists."""
+        self.print_section("Docker Compose")
+
+        compose_path = self.project_root / 'docker-compose.yml'
+        exists = compose_path.exists()
+        self.print_check("docker-compose.yml exists", exists)
+
+        if exists:
+            size_kb = compose_path.stat().st_size / 1024
+            self.print_check("docker-compose.yml size", True, f"{size_kb:.1f} KB")
+
+        self.add_result('compose_file', exists, 'docker-compose.yml ready' if exists else 'docker-compose.yml not found')
+        return exists
+
     def check_containers_running(self) -> bool:
         """Verify all required containers are running."""
         self.print_section("Container Status")
@@ -238,14 +254,18 @@ class Phase2Verifier(PhaseVerifier):
 
         all_running = True
         for container_name, description in required_containers.items():
-            success, status = self._run_docker_command(['docker', 'ps', '--filter', f'name={container_name}', '--format', '{{.Status}}'])
+            success, status = self._run_docker_command([
+                'docker', 'ps', '--filter', f'name={container_name}',
+                '--format', '{{.Status}}'
+            ])
             if success and status:
                 self.print_check(f"{container_name} running", True, status)
             else:
-                self.print_check(f"{container_name} NOT running", False, f"Run: docker-compose up -d")
+                self.print_check(f"{container_name} NOT running", False, "Run: docker-compose up -d")
                 all_running = False
 
-        self.add_result('containers_running', all_running, 'All containers running' if all_running else 'Some containers not running')
+        self.add_result('containers_running', all_running,
+                        'All containers running' if all_running else 'Some containers not running')
         return all_running
 
     def check_postgres_accessible(self) -> bool:
@@ -260,14 +280,16 @@ class Phase2Verifier(PhaseVerifier):
             # Try to connect via psql
             try:
                 result = subprocess.run(
-                    ['docker', 'exec', 'batch-etl-postgres', 'psql', '-U', 'admin', '-d', 'warehouse', '-c', 'SELECT 1'],
+                    ['docker', 'exec', 'batch-etl-postgres', 'psql',
+                     '-U', 'admin', '-d', 'warehouse', '-c', 'SELECT 1'],
                     capture_output=True,
                     text=True,
                     timeout=10
                 )
                 accessible = result.returncode == 0
                 self.print_check("PostgreSQL accessible", accessible)
-                self.add_result('postgres_accessible', accessible, 'PostgreSQL ready' if accessible else 'PostgreSQL connection failed')
+                self.add_result('postgres_accessible', accessible,
+                                'PostgreSQL ready' if accessible else 'PostgreSQL connection failed')
                 return accessible
             except Exception:
                 self.print_check("PostgreSQL accessible", False)
@@ -275,6 +297,34 @@ class Phase2Verifier(PhaseVerifier):
                 return False
         else:
             self.add_result('postgres_accessible', False, 'PostgreSQL port 5432 not open')
+            return False
+
+    def check_database_initialized(self) -> bool:
+        """Verify database is initialized with fact_trips table."""
+        self.print_section("Database Initialization")
+
+        try:
+            # Check if fact_trips table exists
+            result = subprocess.run(
+                ['docker', 'exec', 'batch-etl-postgres', 'psql',
+                 '-U', 'admin', '-d', 'warehouse', '-c',
+                 "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'fact_trips');"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if result.returncode == 0 and 't' in result.stdout:
+                self.print_check("fact_trips table exists", True)
+                self.add_result('database_initialized', True, 'Database initialized successfully')
+                return True
+            else:
+                self.print_check("fact_trips table NOT found", False, "Run init.sql manually")
+                self.add_result('database_initialized', False, 'Database not initialized')
+                return False
+        except Exception:
+            self.print_check("Database check failed", False, "PostgreSQL not accessible")
+            self.add_result('database_initialized', False, 'Database check failed')
             return False
 
     def check_airflow_ui(self) -> bool:
@@ -289,7 +339,8 @@ class Phase2Verifier(PhaseVerifier):
                 response = requests.get('http://localhost:8080', timeout=5)
                 accessible = response.status_code == 200
                 self.print_check("Airflow UI accessible", accessible, f"Status: {response.status_code}")
-                self.add_result('airflow_ui', accessible, 'Airflow UI ready' if accessible else 'Airflow UI not responding')
+                self.add_result('airflow_ui', accessible,
+                                'Airflow UI ready' if accessible else 'Airflow UI not responding')
                 return accessible
             except requests.RequestException:
                 self.print_check("Airflow UI accessible", False, "Check Airflow container logs")
@@ -311,7 +362,8 @@ class Phase2Verifier(PhaseVerifier):
                 response = requests.get('http://localhost:8501', timeout=5)
                 accessible = response.status_code == 200
                 self.print_check("Dashboard accessible", accessible, f"Status: {response.status_code}")
-                self.add_result('dashboard_accessible', accessible, 'Dashboard ready' if accessible else 'Dashboard not responding')
+                self.add_result('dashboard_accessible', accessible,
+                                'Dashboard ready' if accessible else 'Dashboard not responding')
                 return accessible
             except requests.RequestException:
                 self.print_check("Dashboard accessible", False, "Check Streamlit container logs")
@@ -319,32 +371,6 @@ class Phase2Verifier(PhaseVerifier):
                 return False
         else:
             self.add_result('dashboard_accessible', False, 'Streamlit port 8501 not open')
-            return False
-
-    def check_database_initialized(self) -> bool:
-        """Verify database is initialized with fact_trips table."""
-        self.print_section("Database Initialization")
-
-        try:
-            # Check if fact_trips table exists
-            result = subprocess.run(
-                ['docker', 'exec', 'batch-etl-postgres', 'psql', '-U', 'admin', '-d', 'warehouse', '-c', "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'fact_trips');"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-
-            if result.returncode == 0 and 't' in result.stdout:
-                self.print_check("fact_trips table exists", True)
-                self.add_result('database_initialized', True, 'Database initialized successfully')
-                return True
-            else:
-                self.print_check("fact_trips table NOT found", False, "Run init.sql manually")
-                self.add_result('database_initialized', False, 'Database not initialized')
-                return False
-        except Exception:
-            self.print_check("Database check failed", False, "PostgreSQL not accessible")
-            self.add_result('database_initialized', False, 'Database check failed')
             return False
 
     def check_docker_volumes(self) -> bool:
@@ -370,27 +396,44 @@ class Phase2Verifier(PhaseVerifier):
         if success:
             has_network = 'batch-etl-network' in networks
             self.print_check("batch-etl-network exists", has_network)
-            self.add_result('docker_network', has_network, 'Network ready' if has_network else 'Network not found')
+            self.add_result('docker_network', has_network,
+                            'Network ready' if has_network else 'Network not found')
             return has_network
         else:
             self.print_check("Cannot list networks", False)
             self.add_result('docker_network', False, 'Cannot list Docker networks')
             return False
 
-    def check_compose_file(self) -> bool:
-        """Verify docker-compose.yml exists."""
-        self.print_section("Docker Compose")
+    def check_container_logs(self) -> bool:
+        """Verify no errors in container logs."""
+        self.print_section("Container Logs")
 
-        compose_path = self.project_root / 'docker-compose.yml'
-        exists = compose_path.exists()
-        self.print_check("docker-compose.yml exists", exists)
+        containers = ['batch-etl-postgres', 'batch-etl-airflow', 'batch-etl-streamlit']
+        all_clean = True
 
-        if exists:
-            size_kb = compose_path.stat().st_size / 1024
-            self.print_check("docker-compose.yml size", True, f"{size_kb:.1f} KB")
+        for container in containers:
+            try:
+                result = subprocess.run(
+                    ['docker', 'logs', '--tail', '20', container],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                has_error = 'error' in result.stderr.lower() or 'error' in result.stdout.lower()
+                has_exception = 'exception' in result.stderr.lower() or 'exception' in result.stdout.lower()
 
-        self.add_result('compose_file', exists, 'docker-compose.yml ready' if exists else 'docker-compose.yml not found')
-        return exists
+                if has_error or has_exception:
+                    self.print_check(f"{container} logs", False, "Contains errors or exceptions")
+                    all_clean = False
+                else:
+                    self.print_check(f"{container} logs", True, "No errors found")
+            except Exception:
+                self.print_check(f"{container} logs", False, "Cannot read logs")
+                all_clean = False
+
+        self.add_result('container_logs', all_clean,
+                        'All logs clean' if all_clean else 'Some logs contain errors')
+        return all_clean
 
     def run(self) -> bool:
         """Run all Phase 2 checks."""
@@ -403,6 +446,7 @@ class Phase2Verifier(PhaseVerifier):
         self.check_dashboard_accessible()
         self.check_docker_volumes()
         self.check_docker_network()
+        self.check_container_logs()
 
         self.display_summary()
         self.save_json_report()

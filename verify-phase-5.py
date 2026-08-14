@@ -15,6 +15,8 @@ Checks performed:
     - Sample query returns data
     - fare_amount values between 0-500
     - trip_distance values between 0-100
+    - passenger_count >= 0
+    - pickup_datetime < dropoff_datetime
 """
 
 import os
@@ -192,7 +194,8 @@ class Phase5Verifier(PhaseVerifier):
         """Run a PostgreSQL query and return result."""
         try:
             result = subprocess.run(
-                ['docker', 'exec', 'batch-etl-postgres', 'psql', '-U', 'admin', '-d', 'warehouse', '-t', '-c', query],
+                ['docker', 'exec', 'batch-etl-postgres', 'psql',
+                 '-U', 'admin', '-d', 'warehouse', '-t', '-c', query],
                 capture_output=True,
                 text=True,
                 timeout=10
@@ -207,7 +210,9 @@ class Phase5Verifier(PhaseVerifier):
         """Verify fact_trips table exists."""
         self.print_section("Table Existence")
 
-        success, output = self._run_psql("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'fact_trips');")
+        success, output = self._run_psql(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'fact_trips');"
+        )
 
         if success and 't' in output:
             self.print_check("fact_trips table exists", True)
@@ -251,7 +256,10 @@ class Phase5Verifier(PhaseVerifier):
             'payment_type', 'pickup_hour', 'pickup_day', 'pickup_month'
         ]
 
-        success, output = self._run_psql("SELECT column_name FROM information_schema.columns WHERE table_name = 'fact_trips' ORDER BY ordinal_position;")
+        success, output = self._run_psql(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'fact_trips' ORDER BY ordinal_position;"
+        )
 
         if success:
             actual_columns = [col.strip() for col in output.split('\n') if col.strip()]
@@ -270,13 +278,61 @@ class Phase5Verifier(PhaseVerifier):
             self.add_result('columns', False, 'Query failed')
             return False
 
+    def check_data_types(self) -> bool:
+        """Verify correct data types."""
+        self.print_section("Data Types")
+
+        expected_types = {
+            'trip_id': 'integer',
+            'vendor_id': 'integer',
+            'pickup_datetime': 'timestamp without time zone',
+            'dropoff_datetime': 'timestamp without time zone',
+            'passenger_count': 'integer',
+            'trip_distance': 'numeric',
+            'fare_amount': 'numeric',
+            'total_amount': 'numeric',
+            'payment_type': 'integer',
+            'pickup_hour': 'integer',
+            'pickup_day': 'character varying',
+            'pickup_month': 'integer'
+        }
+
+        all_correct = True
+        for column, expected_type in expected_types.items():
+            success, output = self._run_psql(
+                f"SELECT data_type FROM information_schema.columns "
+                f"WHERE table_name = 'fact_trips' AND column_name = '{column}';"
+            )
+
+            if success and output:
+                actual_type = output.strip()
+                # Check if expected type is in actual type (for numeric variations)
+                if expected_type in actual_type or actual_type in expected_type:
+                    self.print_check(f"{column}: {actual_type}", True)
+                else:
+                    self.print_check(f"{column}: {actual_type}", False, f"Expected: {expected_type}")
+                    all_correct = False
+            else:
+                self.print_check(f"{column}: Not found", False)
+                all_correct = False
+
+        self.add_result('data_types', all_correct,
+                        'All data types correct' if all_correct else 'Some data types incorrect')
+        return all_correct
+
     def check_indexes(self) -> bool:
         """Verify indexes exist."""
         self.print_section("Indexes")
 
-        expected_indexes = ['idx_pickup_datetime', 'idx_pickup_day', 'idx_fare_amount']
+        expected_indexes = [
+            'idx_pickup_datetime', 'idx_pickup_day', 'idx_fare_amount',
+            'idx_trip_distance', 'idx_vendor_id', 'idx_pickup_hour',
+            'idx_payment_type'
+        ]
 
-        success, output = self._run_psql("SELECT indexname FROM pg_indexes WHERE tablename = 'fact_trips';")
+        success, output = self._run_psql(
+            "SELECT indexname FROM pg_indexes WHERE tablename = 'fact_trips';"
+        )
 
         if success:
             existing_indexes = [idx.strip() for idx in output.split('\n') if idx.strip()]
@@ -299,7 +355,10 @@ class Phase5Verifier(PhaseVerifier):
         """Verify primary key exists."""
         self.print_section("Primary Key")
 
-        success, output = self._run_psql("SELECT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE table_name = 'fact_trips' AND constraint_type = 'PRIMARY KEY');")
+        success, output = self._run_psql(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.table_constraints "
+            "WHERE table_name = 'fact_trips' AND constraint_type = 'PRIMARY KEY');"
+        )
 
         if success and 't' in output:
             self.print_check("Primary key exists (trip_id)", True)
@@ -314,14 +373,17 @@ class Phase5Verifier(PhaseVerifier):
         """Verify no duplicate trip_ids."""
         self.print_section("Duplicate Check")
 
-        success, output = self._run_psql("SELECT COUNT(*) - COUNT(DISTINCT trip_id) FROM fact_trips;")
+        success, output = self._run_psql(
+            "SELECT COUNT(*) - COUNT(DISTINCT trip_id) FROM fact_trips;"
+        )
 
         if success:
             try:
                 duplicates = int(output.strip())
                 self.print_check(f"Duplicate trip_ids: {duplicates}", duplicates == 0)
                 is_valid = duplicates == 0
-                self.add_result('no_duplicates', is_valid, f'{duplicates} duplicates found' if duplicates > 0 else 'No duplicates')
+                self.add_result('no_duplicates', is_valid,
+                                f'{duplicates} duplicates found' if duplicates > 0 else 'No duplicates')
                 return is_valid
             except ValueError:
                 self.print_check("Could not parse count", False, output)
@@ -332,55 +394,30 @@ class Phase5Verifier(PhaseVerifier):
             self.add_result('no_duplicates', False, 'Query failed')
             return False
 
-    def check_data_quality(self) -> bool:
-        """Verify data quality rules."""
-        self.print_section("Data Quality")
+    def check_not_null_constraints(self) -> bool:
+        """Verify pickup_datetime not null."""
+        self.print_section("Not Null Constraints")
 
-        # Check fare_amount range (0-500)
-        success, output = self._run_psql("SELECT COUNT(*) FROM fact_trips WHERE fare_amount < 0 OR fare_amount > 500;")
-
-        if success:
-            try:
-                invalid_fares = int(output.strip())
-                self.print_check(f"Invalid fare_amount (< 0 or > 500): {invalid_fares}", invalid_fares == 0)
-            except ValueError:
-                self.print_check("Could not parse fare count", False)
-                return False
-        else:
-            self.print_check("Fare query failed", False)
-            return False
-
-        # Check trip_distance range (0-100)
-        success, output = self._run_psql("SELECT COUNT(*) FROM fact_trips WHERE trip_distance < 0 OR trip_distance > 100;")
+        success, output = self._run_psql(
+            "SELECT COUNT(*) FROM fact_trips WHERE pickup_datetime IS NULL;"
+        )
 
         if success:
             try:
-                invalid_distances = int(output.strip())
-                self.print_check(f"Invalid trip_distance (< 0 or > 100): {invalid_distances}", invalid_distances == 0)
+                null_count = int(output.strip())
+                self.print_check(f"NULL pickup_datetime: {null_count}", null_count == 0)
+                is_valid = null_count == 0
+                self.add_result('not_null_constraints', is_valid,
+                                'No NULL values' if is_valid else f'{null_count} NULL values found')
+                return is_valid
             except ValueError:
-                self.print_check("Could not parse distance count", False)
+                self.print_check("Could not parse count", False, output)
+                self.add_result('not_null_constraints', False, 'Parse failed')
                 return False
         else:
-            self.print_check("Distance query failed", False)
+            self.print_check("Query failed", False, output)
+            self.add_result('not_null_constraints', False, 'Query failed')
             return False
-
-        # Check nulls in critical columns
-        success, output = self._run_psql("SELECT COUNT(*) FROM fact_trips WHERE pickup_datetime IS NULL;")
-
-        if success:
-            try:
-                null_pickups = int(output.strip())
-                self.print_check(f"NULL pickup_datetime: {null_pickups}", null_pickups == 0)
-            except ValueError:
-                self.print_check("Could not parse null count", False)
-                return False
-        else:
-            self.print_check("Null query failed", False)
-            return False
-
-        is_valid = True
-        self.add_result('data_quality', is_valid, 'Data quality rules passed')
-        return is_valid
 
     def check_sample_data(self) -> bool:
         """Verify sample query returns data."""
@@ -404,16 +441,121 @@ class Phase5Verifier(PhaseVerifier):
             self.add_result('sample_data', False, 'Query failed')
             return False
 
+    def check_fare_range(self) -> bool:
+        """Verify fare_amount values between 0-500."""
+        self.print_section("Fare Range (0-500)")
+
+        success, output = self._run_psql(
+            "SELECT COUNT(*) FROM fact_trips WHERE fare_amount < 0 OR fare_amount > 500;"
+        )
+
+        if success:
+            try:
+                invalid_count = int(output.strip())
+                self.print_check(f"Invalid fare_amount: {invalid_count}", invalid_count == 0)
+                is_valid = invalid_count == 0
+                self.add_result('fare_range', is_valid,
+                                'All fares valid' if is_valid else f'{invalid_count} invalid fares')
+                return is_valid
+            except ValueError:
+                self.print_check("Could not parse count", False, output)
+                self.add_result('fare_range', False, 'Parse failed')
+                return False
+        else:
+            self.print_check("Query failed", False, output)
+            self.add_result('fare_range', False, 'Query failed')
+            return False
+
+    def check_distance_range(self) -> bool:
+        """Verify trip_distance values between 0-100."""
+        self.print_section("Distance Range (0-100)")
+
+        success, output = self._run_psql(
+            "SELECT COUNT(*) FROM fact_trips WHERE trip_distance < 0 OR trip_distance > 100;"
+        )
+
+        if success:
+            try:
+                invalid_count = int(output.strip())
+                self.print_check(f"Invalid trip_distance: {invalid_count}", invalid_count == 0)
+                is_valid = invalid_count == 0
+                self.add_result('distance_range', is_valid,
+                                'All distances valid' if is_valid else f'{invalid_count} invalid distances')
+                return is_valid
+            except ValueError:
+                self.print_check("Could not parse count", False, output)
+                self.add_result('distance_range', False, 'Parse failed')
+                return False
+        else:
+            self.print_check("Query failed", False, output)
+            self.add_result('distance_range', False, 'Query failed')
+            return False
+
+    def check_passenger_count(self) -> bool:
+        """Verify passenger_count >= 0."""
+        self.print_section("Passenger Count (>= 0)")
+
+        success, output = self._run_psql(
+            "SELECT COUNT(*) FROM fact_trips WHERE passenger_count < 0;"
+        )
+
+        if success:
+            try:
+                invalid_count = int(output.strip())
+                self.print_check(f"Negative passenger_count: {invalid_count}", invalid_count == 0)
+                is_valid = invalid_count == 0
+                self.add_result('passenger_count', is_valid,
+                                'All passenger counts valid' if is_valid else f'{invalid_count} negative values')
+                return is_valid
+            except ValueError:
+                self.print_check("Could not parse count", False, output)
+                self.add_result('passenger_count', False, 'Parse failed')
+                return False
+        else:
+            self.print_check("Query failed", False, output)
+            self.add_result('passenger_count', False, 'Query failed')
+            return False
+
+    def check_trip_duration(self) -> bool:
+        """Verify pickup_datetime < dropoff_datetime."""
+        self.print_section("Trip Duration (pickup < dropoff)")
+
+        success, output = self._run_psql(
+            "SELECT COUNT(*) FROM fact_trips WHERE pickup_datetime >= dropoff_datetime;"
+        )
+
+        if success:
+            try:
+                invalid_count = int(output.strip())
+                self.print_check(f"Invalid trip durations: {invalid_count}", invalid_count == 0)
+                is_valid = invalid_count == 0
+                self.add_result('trip_duration', is_valid,
+                                'All durations valid' if is_valid else f'{invalid_count} invalid durations')
+                return is_valid
+            except ValueError:
+                self.print_check("Could not parse count", False, output)
+                self.add_result('trip_duration', False, 'Parse failed')
+                return False
+        else:
+            self.print_check("Query failed", False, output)
+            self.add_result('trip_duration', False, 'Query failed')
+            return False
+
     def run(self) -> bool:
         """Run all Phase 5 checks."""
         self.check_table_exists()
         self.check_row_count()
         self.check_columns()
+        self.check_data_types()
         self.check_indexes()
         self.check_primary_key()
         self.check_no_duplicates()
-        self.check_data_quality()
+        self.check_not_null_constraints()
         self.check_sample_data()
+        self.check_fare_range()
+        self.check_distance_range()
+        self.check_passenger_count()
+        self.check_trip_duration()
 
         self.display_summary()
         self.save_json_report()

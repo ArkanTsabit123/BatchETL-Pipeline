@@ -184,14 +184,30 @@ class Phase3Verifier(PhaseVerifier):
     def __init__(self):
         super().__init__(3, "Airflow DAG Creation")
 
+    def check_dag_exists(self) -> bool:
+        """Verify DAG file exists."""
+        self.print_section("DAG File Existence")
+
+        dag_path = self.project_root / 'dags' / 'etl_pipeline.py'
+        exists = dag_path.exists()
+
+        if exists:
+            size_kb = dag_path.stat().st_size / 1024
+            self.print_check("DAG file exists", True, f"{size_kb:.1f} KB")
+            self.add_result('dag_exists', True, 'DAG file found')
+            return True
+        else:
+            self.print_check("DAG file NOT found", False, "dags/etl_pipeline.py missing")
+            self.add_result('dag_exists', False, 'DAG file not found')
+            return False
+
     def check_dag_syntax(self) -> bool:
         """Verify DAG file has valid Python syntax."""
         self.print_section("DAG File Syntax")
 
         dag_path = self.project_root / 'dags' / 'etl_pipeline.py'
-        exists = dag_path.exists()
 
-        if not exists:
+        if not dag_path.exists():
             self.print_check("DAG file exists", False, "dags/etl_pipeline.py not found")
             self.add_result('dag_syntax', False, 'DAG file not found')
             return False
@@ -222,37 +238,33 @@ class Phase3Verifier(PhaseVerifier):
             with open(dag_path, 'r') as f:
                 content = f.read()
 
-            # Check imports
             imports_to_check = [
-                ('from airflow import DAG', 'from airflow'),
-                ('from airflow.operators.python import PythonOperator', 'from airflow.operators.python'),
+                ('from airflow import DAG', 'Airflow DAG'),
+                ('from airflow.operators.python import PythonOperator', 'PythonOperator'),
             ]
-            
-            # Check datetime and timedelta
+
             has_datetime = 'from datetime import datetime' in content or 'datetime' in content
             has_timedelta = 'from datetime import timedelta' in content or 'timedelta' in content
-            
+
             all_imported = True
-            
+
             for imp, display in imports_to_check:
                 exists = imp in content
                 self.print_check(f"Import: {display}", exists)
                 if not exists:
                     all_imported = False
-            
-            # Check datetime
+
             self.print_check("Import: datetime", has_datetime)
             if not has_datetime:
                 all_imported = False
-            
-            # Check timedelta (combined with datetime)
+
             if not has_timedelta:
-                # timedelta might be imported with datetime
-                if not ('from datetime import datetime, timedelta' in content or 
+                if not ('from datetime import datetime, timedelta' in content or
                        'from datetime import timedelta' in content):
                     all_imported = False
 
-            self.add_result('dag_imports', all_imported, 'All imports present' if all_imported else 'Some imports missing')
+            self.add_result('dag_imports', all_imported,
+                            'All imports present' if all_imported else 'Some imports missing')
             return all_imported
         except Exception as e:
             self.print_check("DAG imports check failed", False, str(e))
@@ -273,24 +285,21 @@ class Phase3Verifier(PhaseVerifier):
             with open(dag_path, 'r') as f:
                 content = f.read()
 
-            # Check for DAG ID
             has_dag_id = 'DAG_ID' in content or "dag_id='etl_pipeline'" in content or 'dag_id="etl_pipeline"' in content
             self.print_check("DAG ID defined", has_dag_id)
 
-            # Check for schedule
             has_schedule = '@daily' in content or "schedule_interval" in content
             self.print_check("Schedule interval defined", has_schedule)
 
-            # Check for default_args
             has_default_args = 'default_args' in content
             self.print_check("default_args defined", has_default_args)
 
-            # Check for DAG instantiation
             has_dag = 'DAG(' in content
             self.print_check("DAG instantiated", has_dag)
 
             all_defined = has_dag_id and has_schedule and has_default_args and has_dag
-            self.add_result('dag_definition', all_defined, 'DAG properly defined' if all_defined else 'Some definitions missing')
+            self.add_result('dag_definition', all_defined,
+                            'DAG properly defined' if all_defined else 'Some definitions missing')
             return all_defined
         except Exception as e:
             self.print_check("DAG definition check failed", False, str(e))
@@ -324,7 +333,8 @@ class Phase3Verifier(PhaseVerifier):
                 if not has_task:
                     all_defined = False
 
-            self.add_result('tasks_defined', all_defined, 'All tasks defined' if all_defined else 'Some tasks missing')
+            self.add_result('tasks_defined', all_defined,
+                            'All tasks defined' if all_defined else 'Some tasks missing')
             return all_defined
         except Exception as e:
             self.print_check("Tasks check failed", False, str(e))
@@ -345,18 +355,17 @@ class Phase3Verifier(PhaseVerifier):
             with open(dag_path, 'r') as f:
                 content = f.read()
 
-            # Check for dependency operators
             has_dependency = '>>' in content or 'set_downstream' in content or 'set_upstream' in content
             self.print_check("Dependencies defined (>>)", has_dependency)
 
-            # Check specific dependency chain
             has_extract_transform = 'extract_task >> transform_task' in content
             has_transform_load = 'transform_task >> load_task' in content
             self.print_check("extract >> transform", has_extract_transform)
             self.print_check("transform >> load", has_transform_load)
 
             all_dependencies = has_dependency and has_extract_transform and has_transform_load
-            self.add_result('task_dependencies', all_dependencies, 'Dependencies properly set' if all_dependencies else 'Some dependencies missing')
+            self.add_result('task_dependencies', all_dependencies,
+                            'Dependencies properly set' if all_dependencies else 'Some dependencies missing')
             return all_dependencies
         except Exception as e:
             self.print_check("Dependencies check failed", False, str(e))
@@ -390,7 +399,8 @@ class Phase3Verifier(PhaseVerifier):
             all_tags = len(tags_found) >= 3
             self.print_check("Expected tags: etl, batch, taxi, nyc", all_tags)
 
-            self.add_result('dag_tags', all_tags, f'Tags configured: {", ".join(tags_found)}' if tags_found else 'No tags found')
+            self.add_result('dag_tags', all_tags,
+                            f'Tags configured: {", ".join(tags_found)}' if tags_found else 'No tags found')
             return all_tags
         except Exception as e:
             self.print_check("Tags check failed", False, str(e))
@@ -421,15 +431,48 @@ class Phase3Verifier(PhaseVerifier):
                     desc = match.group(1)
                     self.print_check(f"Description: {desc}", True)
 
-            self.add_result('dag_description', has_description, 'Description defined' if has_description else 'Description missing')
+            self.add_result('dag_description', has_description,
+                            'Description defined' if has_description else 'Description missing')
             return has_description
         except Exception as e:
             self.print_check("Description check failed", False, str(e))
             self.add_result('dag_description', False, 'Check failed')
             return False
 
+    def check_dag_script_imports(self) -> bool:
+        """Verify DAG imports ETL scripts correctly."""
+        self.print_section("ETL Script Imports")
+
+        dag_path = self.project_root / 'dags' / 'etl_pipeline.py'
+        if not dag_path.exists():
+            self.print_check("DAG file exists", False)
+            self.add_result('dag_script_imports', False, 'DAG file not found')
+            return False
+
+        try:
+            with open(dag_path, 'r') as f:
+                content = f.read()
+
+            has_extract_import = 'from extract import extract_data' in content or 'import extract' in content
+            has_transform_import = 'from transform import transform_data' in content or 'import transform' in content
+            has_load_import = 'from load import load_data' in content or 'import load' in content
+
+            self.print_check("Import: extract.py", has_extract_import)
+            self.print_check("Import: transform.py", has_transform_import)
+            self.print_check("Import: load.py", has_load_import)
+
+            all_imports = has_extract_import and has_transform_import and has_load_import
+            self.add_result('dag_script_imports', all_imports,
+                            'All scripts imported' if all_imports else 'Some imports missing')
+            return all_imports
+        except Exception as e:
+            self.print_check("Script import check failed", False, str(e))
+            self.add_result('dag_script_imports', False, 'Check failed')
+            return False
+
     def run(self) -> bool:
         """Run all Phase 3 checks."""
+        self.check_dag_exists()
         self.check_dag_syntax()
         self.check_dag_imports()
         self.check_dag_definition()
@@ -437,6 +480,7 @@ class Phase3Verifier(PhaseVerifier):
         self.check_task_dependencies()
         self.check_dag_tags()
         self.check_dag_description()
+        self.check_dag_script_imports()
 
         self.display_summary()
         self.save_json_report()

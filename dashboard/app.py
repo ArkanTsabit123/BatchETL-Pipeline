@@ -8,6 +8,7 @@ Features KPI cards, interactive charts, and filters.
 """
 
 import calendar
+import os
 from sqlalchemy import create_engine
 import pandas as pd
 import plotly.express as px
@@ -20,7 +21,7 @@ PAGE_TITLE = "NYC Taxi Analytics Dashboard"
 LAYOUT = "wide"
 CACHE_TTL = 300
 SAMPLE_SIZE = 1000
-DATA_LIMIT = 100000
+DATA_LIMIT = int(os.getenv("DATA_LIMIT", 100000))
 FARE_BINS = 50
 
 
@@ -54,21 +55,9 @@ def load_trip_data() -> pd.DataFrame:
     Raises:
         Exception: If database connection fails.
     """
-@st.cache_data(ttl=CACHE_TTL)
-def load_trip_data() -> pd.DataFrame:
-    """
-    Load trip data from PostgreSQL with row limit for performance.
-
-    Returns:
-        DataFrame: Trip data from fact_trips table.
-
-    Raises:
-        Exception: If database connection fails.
-    """
     try:
         engine = get_database_engine()
-        
-        # Build query with conditional LIMIT clause
+
         if DATA_LIMIT:
             query = f"""
                 SELECT *
@@ -82,7 +71,7 @@ def load_trip_data() -> pd.DataFrame:
                 FROM fact_trips
                 ORDER BY trip_id
             """
-        
+
         return pd.read_sql(query, engine)
     except Exception as e:
         raise Exception(f"Database connection failed: {str(e)}")
@@ -315,18 +304,6 @@ def render_footer() -> None:
     )
 
 
-def handle_data_error(error: Exception) -> None:
-    """
-    Handle data loading errors gracefully.
-
-    Args:
-        error: Exception that occurred during data loading.
-    """
-    st.error(f"Error loading data: {str(error)}")
-    st.info("Make sure PostgreSQL is running and data has been loaded.")
-    st.stop()
-
-
 def main() -> None:
     """Main application entry point."""
     configure_page()
@@ -339,31 +316,30 @@ def main() -> None:
             st.warning("No data found. Please run the ETL pipeline first.")
             return
 
+        filters = get_filters(data)
+        filtered_data = apply_filters(data, filters)
+
+        display_filtered_count(filtered_data)
+        render_kpi_cards(filtered_data)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            render_revenue_by_day(filtered_data)
+        with col2:
+            render_trips_by_hour(filtered_data)
+
+        col3, col4 = st.columns(2)
+        with col3:
+            render_fare_distribution(filtered_data)
+        with col4:
+            render_distance_vs_fare(filtered_data)
+
+        render_raw_data(filtered_data)
+        render_footer()
+
     except Exception as error:
         st.error(f"Error loading data: {str(error)}")
         st.info("Make sure PostgreSQL is running and data has been loaded.")
-        return
-
-    filters = get_filters(data)
-    filtered_data = apply_filters(data, filters)
-
-    display_filtered_count(filtered_data)
-    render_kpi_cards(filtered_data)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        render_revenue_by_day(filtered_data)
-    with col2:
-        render_trips_by_hour(filtered_data)
-
-    col3, col4 = st.columns(2)
-    with col3:
-        render_fare_distribution(filtered_data)
-    with col4:
-        render_distance_vs_fare(filtered_data)
-
-    render_raw_data(filtered_data)
-    render_footer()
 
 
 if __name__ == "__main__":

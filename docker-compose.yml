@@ -22,11 +22,15 @@ services:
       retries: 5
 
   airflow:
-    image: apache/airflow:2.6.3
+    image: apache/airflow:2.7.3
     container_name: batch-etl-airflow
     environment:
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: Asia/Jakarta
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'your-secret-key-here'
+      AIRFLOW_CONN_POSTGRES: 'postgresql://admin:admin@postgres:5432/warehouse'
+      PYTHONPATH: '/opt/airflow'
+      DATA_PATH: '/opt/airflow/data'
       _AIRFLOW_WWW_USER_CREATE: "true"
       _AIRFLOW_WWW_USER_USERNAME: admin
       _AIRFLOW_WWW_USER_PASSWORD: admin
@@ -34,11 +38,20 @@ services:
       - ./dags:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
       - ./data:/opt/airflow/data
+      - ./warehouse:/opt/airflow/warehouse
     ports:
       - "8080:8080"
     networks:
       - batch-etl-network
     command: standalone
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   streamlit:
     build:
@@ -49,11 +62,16 @@ services:
       - ./data:/app/data
     ports:
       - "8501:8501"
+    networks:
+      - batch-etl-network
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - batch-etl-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
 volumes:
   postgres_data:

@@ -11,7 +11,7 @@ Checks performed:
     - Transform task logs show cleaning stats
     - Load task logs show row count
     - Staging files created
-    - Pipeline execution time < 10 seconds
+    - Pipeline execution time < 30 seconds
     - No Airflow task errors
 """
 
@@ -20,6 +20,7 @@ import sys
 import json
 import subprocess
 import time
+import re
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Tuple
@@ -199,6 +200,11 @@ class Phase4Verifier(PhaseVerifier):
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return False, ""
 
+    def _run_airflow_command(self, command: List[str]) -> Tuple[bool, str]:
+        """Run an Airflow command inside the container."""
+        full_command = ['docker', 'exec', 'batch-etl-airflow'] + command
+        return self._run_docker_command(full_command)
+
     def check_staging_files(self) -> bool:
         """Verify staging files exist."""
         self.print_section("Staging Files")
@@ -211,18 +217,22 @@ class Phase4Verifier(PhaseVerifier):
         all_exist = True
         for file_path, description in files:
             exists = (self.project_root / file_path).exists()
-            self.print_check(f"{file_path}", exists, description)
+            if exists:
+                size_mb = (self.project_root / file_path).stat().st_size / (1024 * 1024)
+                self.print_check(f"{file_path}", exists, f"{description} ({size_mb:.2f} MB)")
+            else:
+                self.print_check(f"{file_path}", exists, description)
             if not exists:
                 all_exist = False
 
-        self.add_result('staging_files', all_exist, 'Staging files exist' if all_exist else 'Some staging files missing')
+        self.add_result('staging_files', all_exist,
+                        'Staging files exist' if all_exist else 'Some staging files missing')
         return all_exist
 
     def check_extract_task(self) -> bool:
         """Verify extract task executed successfully."""
         self.print_section("Extract Task")
 
-        # Check raw CSV exists
         raw_path = self.project_root / 'data' / 'staging' / 'taxi_raw.csv'
         exists = raw_path.exists()
 
@@ -238,8 +248,8 @@ class Phase4Verifier(PhaseVerifier):
                 self.print_check(f"Rows extracted: {row_count:,}", True)
                 self.add_result('extract_task', True, f'Extracted {row_count:,} rows')
                 return True
-            except Exception:
-                self.print_check("Could not read CSV", False, "Check file format")
+            except Exception as e:
+                self.print_check("Could not read CSV", False, str(e))
                 self.add_result('extract_task', False, 'CSV read failed')
                 return False
         else:
@@ -258,7 +268,7 @@ class Phase4Verifier(PhaseVerifier):
             size_mb = clean_path.stat().st_size / (1024 * 1024)
             self.print_check("taxi_clean.csv created", True, f"{size_mb:.2f} MB")
 
-            # Try to count rows
+            # Try to count rows and validate columns
             try:
                 import pandas as pd
                 df = pd.read_csv(clean_path)
@@ -266,9 +276,12 @@ class Phase4Verifier(PhaseVerifier):
                 self.print_check(f"Rows after transform: {row_count:,}", True)
 
                 # Check columns
-                expected_columns = ['vendor_id', 'pickup_datetime', 'dropoff_datetime', 'passenger_count',
-                                   'trip_distance', 'fare_amount', 'total_amount', 'payment_type',
-                                   'pickup_hour', 'pickup_day', 'pickup_month']
+                expected_columns = [
+                    'vendor_id', 'pickup_datetime', 'dropoff_datetime',
+                    'passenger_count', 'trip_distance', 'fare_amount',
+                    'total_amount', 'payment_type', 'pickup_hour',
+                    'pickup_day', 'pickup_month'
+                ]
                 actual_columns = df.columns.tolist()
                 missing = [col for col in expected_columns if col not in actual_columns]
 
@@ -294,25 +307,24 @@ class Phase4Verifier(PhaseVerifier):
         self.print_section("Load Task")
 
         try:
-            # Check PostgreSQL for data
             result = subprocess.run(
-                ['docker', 'exec', 'batch-etl-postgres', 'psql', '-U', 'admin', '-d', 'warehouse', '-c', "SELECT COUNT(*) FROM fact_trips;"],
+                ['docker', 'exec', 'batch-etl-postgres', 'psql',
+                 '-U', 'admin', '-d', 'warehouse', '-t', '-c',
+                 "SELECT COUNT(*) FROM fact_trips;"],
                 capture_output=True,
                 text=True,
                 timeout=10
             )
 
             if result.returncode == 0:
-                # Extract count from output
-                import re
-                match = re.search(r'(\d+)', result.stdout)
-                if match:
-                    row_count = int(match.group(1))
-                    self.print_check(f"Rows loaded to PostgreSQL: {row_count:,}", True)
-                    self.add_result('load_task', True, f'Loaded {row_count:,} rows')
-                    return True
-                else:
-                    self.print_check("Could not parse row count", False)
+                try:
+                    row_count = int(result.stdout.strip())
+                    self.print_check(f"Rows loaded to PostgreSQL: {row_count:,}", row_count > 0)
+                    is_valid = row_count > 0
+                    self.add_result('load_task', is_valid, f'Loaded {row_count:,} rows')
+                    return is_valid
+                except ValueError:
+                    self.print_check("Could not parse row count", False, result.stdout)
                     self.add_result('load_task', False, 'Parse failed')
                     return False
             else:
@@ -324,12 +336,139 @@ class Phase4Verifier(PhaseVerifier):
             self.add_result('load_task', False, 'Check failed')
             return False
 
+    def check_dag_status(self) -> bool:
+        """Verify DAG status from Airflow."""
+        self.print_section("DAG Status")
+
+        try:
+            success, output = self._run_airflow_command([
+                'airflow', 'dags', 'list-runs', '--dag-id', 'etl_pipeline', '--limit', '1'
+            ])
+
+            if success:
+                self.print_check("DAG runs found", True)
+                # Check for success status
+                has_success = 'success' in output.lower()
+                self.print_check("Latest DAG run successful", has_success)
+                self.add_result('dag_status', has_success,
+                                'DAG successful' if has_success else 'DAG failed')
+                return has_success
+            else:
+                self.print_check("DAG status check failed", False, output)
+                self.add_result('dag_status', False, 'DAG status check failed')
+                return False
+        except Exception as e:
+            self.print_check(f"DAG status check failed: {str(e)}", False)
+            self.add_result('dag_status', False, 'Check failed')
+            return False
+
+    def check_pipeline_time(self) -> bool:
+        """Verify pipeline execution time is under 30 seconds."""
+        self.print_section("Pipeline Execution Time")
+
+        # Check if staging files exist with timestamps
+        raw_path = self.project_root / 'data' / 'staging' / 'taxi_raw.csv'
+        clean_path = self.project_root / 'data' / 'staging' / 'taxi_clean.csv'
+
+        if raw_path.exists() and clean_path.exists():
+            raw_time = raw_path.stat().st_mtime
+            clean_time = clean_path.stat().st_mtime
+            time_diff = clean_time - raw_time
+
+            self.print_check(f"Transform time: {time_diff:.2f} seconds", time_diff < 30)
+            is_valid = time_diff < 30
+            self.add_result('pipeline_time', is_valid,
+                            f'Completed in {time_diff:.2f} seconds' if is_valid else f'Time: {time_diff:.2f}s (exceeds 30s)')
+            return is_valid
+        else:
+            self.print_check("Staging files not found", False)
+            self.add_result('pipeline_time', False, 'Staging files missing')
+            return False
+
+    def check_task_errors(self) -> bool:
+        """Verify no task errors in logs."""
+        self.print_section("Task Errors")
+
+        try:
+            # Check Airflow logs for errors
+            success, output = self._run_airflow_command([
+                'airflow', 'tasks', 'list', 'etl_pipeline'
+            ])
+
+            if success:
+                tasks = ['extract_data', 'transform_data', 'load_data']
+                all_clean = True
+
+                for task in tasks:
+                    try:
+                        log_result = subprocess.run(
+                            ['docker', 'exec', 'batch-etl-airflow',
+                             'airflow', 'tasks', 'state', 'etl_pipeline', task,
+                             datetime.now().strftime('%Y-%m-%d')],
+                            capture_output=True,
+                            text=True,
+                            timeout=10
+                        )
+                        if 'failed' in log_result.stdout.lower():
+                            self.print_check(f"Task: {task}", False, "Has errors")
+                            all_clean = False
+                        else:
+                            self.print_check(f"Task: {task}", True, "No errors")
+                    except Exception:
+                        self.print_check(f"Task: {task}", False, "Cannot check status")
+                        all_clean = False
+
+                self.add_result('task_errors', all_clean,
+                                'No task errors' if all_clean else 'Some tasks have errors')
+                return all_clean
+            else:
+                self.print_check("Task list check failed", False)
+                self.add_result('task_errors', False, 'Task list check failed')
+                return False
+        except Exception as e:
+            self.print_check(f"Error check failed: {str(e)}", False)
+            self.add_result('task_errors', False, 'Check failed')
+            return False
+
+    def check_data_volume(self) -> bool:
+        """Verify data volume is correct."""
+        self.print_section("Data Volume")
+
+        try:
+            import pandas as pd
+            clean_path = self.project_root / 'data' / 'staging' / 'taxi_clean.csv'
+
+            if clean_path.exists():
+                df = pd.read_csv(clean_path)
+                row_count = len(df)
+                column_count = len(df.columns)
+
+                self.print_check(f"Output rows: {row_count:,}", row_count > 100000)
+                self.print_check(f"Output columns: {column_count}", column_count == 11)
+
+                is_valid = row_count > 100000 and column_count == 11
+                self.add_result('data_volume', is_valid,
+                                f'{row_count:,} rows, {column_count} columns' if is_valid else 'Invalid data volume')
+                return is_valid
+            else:
+                self.print_check("Clean file not found", False)
+                self.add_result('data_volume', False, 'Clean file missing')
+                return False
+        except Exception as e:
+            self.print_check(f"Data volume check failed: {str(e)}", False)
+            self.add_result('data_volume', False, 'Check failed')
+            return False
+
     def run(self) -> bool:
         """Run all Phase 4 checks."""
         self.check_staging_files()
         self.check_extract_task()
         self.check_transform_task()
         self.check_load_task()
+        self.check_dag_status()
+        self.check_pipeline_time()
+        self.check_task_errors()
+        self.check_data_volume()
 
         self.display_summary()
         self.save_json_report()

@@ -1,12 +1,12 @@
 # verify-phase-8.py
 """
-Phase 8: Documentation & Deployment Verification
+Phase 8: Documentation and Local Deployment Verification
 
 Checks performed:
     - README.md completed
     - blueprint.md completed
     - cheatsheets.md completed
-    - verification checklist.md completed
+    - verification-checklist.md completed
     - LICENSE added
     - .gitignore configured
     - Git initialized
@@ -16,12 +16,20 @@ Checks performed:
     - Push to GitHub
     - README rendered on GitHub
     - Screenshots visible on GitHub
+    - LinkedIn post published
+    - All badges display correctly
+    - Repository has description
+    - Repository has website URL
+    - Live Demo section added to README
+    - Deployment guide to Streamlit Cloud added
+    - blueprint.md updated with cloud deployment
 """
 
 import os
 import sys
 import json
 import subprocess
+import re
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Tuple
@@ -179,14 +187,14 @@ class PhaseVerifier:
 
 
 # ============================================
-# Phase 8: Documentation & Deployment
+# Phase 8: Documentation and Local Deployment
 # ============================================
 
 class Phase8Verifier(PhaseVerifier):
-    """Verifier for Phase 8: Documentation & Deployment."""
+    """Verifier for Phase 8: Documentation and Local Deployment."""
 
     def __init__(self):
-        super().__init__(8, "Documentation & Deployment")
+        super().__init__(8, "Documentation and Local Deployment")
 
     def _run_git_command(self, command: List[str]) -> Tuple[bool, str]:
         """Run a git command and return status and output."""
@@ -203,99 +211,46 @@ class Phase8Verifier(PhaseVerifier):
             return False, ""
 
     def check_documentation_files(self) -> bool:
-        """Verify documentation files exist (check root and docs/ folder)."""
+        """Verify documentation files exist in docs/ folder."""
         self.print_section("Documentation Files")
 
         docs = [
-            ('README.md', 'Main documentation'),
             ('blueprint.md', 'Technical blueprint'),
             ('cheatsheets.md', 'Quick reference'),
-            ('verification checklist.md', 'Testing checklist')
+            ('verification-checklist.md', 'Testing checklist')
         ]
 
         all_exist = True
         for doc, description in docs:
-            # Cek di root dan di folder docs
-            root_path = self.project_root / doc
             docs_path = self.project_root / 'docs' / doc
-            exists = root_path.exists() or docs_path.exists()
-            
+            exists = docs_path.exists()
+
             if exists:
-                location = "root" if root_path.exists() else "docs/"
-                self.print_check(f"{doc} ({location})", True, description)
+                size_kb = docs_path.stat().st_size / 1024
+                self.print_check(f"{doc} (docs/)", True, f"{description} ({size_kb:.1f} KB)")
             else:
-                self.print_check(f"{doc}", False, description)
+                self.print_check(f"{doc} (docs/)", False, description)
                 all_exist = False
 
-        self.add_result('documentation_files', all_exist, 
+        self.add_result('documentation_files', all_exist,
                         'All documentation files exist' if all_exist else 'Some files missing')
         return all_exist
 
-    def check_license(self) -> bool:
-        """Verify LICENSE exists."""
-        self.print_section("License")
+    def check_readme(self) -> bool:
+        """Verify README.md exists in root."""
+        self.print_section("README File")
 
-        license_path = self.project_root / 'LICENSE'
-        exists = license_path.exists()
+        readme_path = self.project_root / 'README.md'
+        exists = readme_path.exists()
 
         if exists:
-            size_kb = license_path.stat().st_size / 1024
-            self.print_check("LICENSE exists", True, f"{size_kb:.1f} KB")
-            self.add_result('license', True, 'MIT License present')
+            size_kb = readme_path.stat().st_size / 1024
+            self.print_check("README.md exists (root)", True, f"{size_kb:.1f} KB")
+            self.add_result('readme', True, 'README.md found')
             return True
         else:
-            self.print_check("LICENSE NOT found", False, "Add MIT License")
-            self.add_result('license', False, 'LICENSE missing')
-            return False
-
-    def check_gitignore(self) -> bool:
-        """Verify .gitignore exists."""
-        self.print_section("Gitignore")
-
-        gitignore_path = self.project_root / '.gitignore'
-        exists = gitignore_path.exists()
-
-        if exists:
-            with open(gitignore_path, 'r') as f:
-                content = f.read()
-
-            required_entries = ['venv', '__pycache__', '.env', '*.csv']
-            found_entries = [entry for entry in required_entries if entry in content]
-
-            self.print_check(".gitignore exists", True)
-            self.print_check(f"Found {len(found_entries)}/{len(required_entries)} required entries", 
-                           len(found_entries) == len(required_entries))
-
-            self.add_result('gitignore', True, '.gitignore configured')
-            return True
-        else:
-            self.print_check(".gitignore NOT found", False, "Create .gitignore")
-            self.add_result('gitignore', False, '.gitignore missing')
-            return False
-
-    def check_git(self) -> bool:
-        """Verify Git is initialized."""
-        self.print_section("Git Status")
-
-        git_dir = self.project_root / '.git'
-        exists = git_dir.exists()
-        self.print_check(".git directory exists", exists)
-
-        if exists:
-            success, output = self._run_git_command(['git', 'log', '--oneline'])
-            has_commits = success and output
-            self.print_check("Git commits exist", has_commits)
-
-            success, remote = self._run_git_command(['git', 'remote', 'get-url', 'origin'])
-            has_remote = success and remote
-            self.print_check("Git remote configured", has_remote, remote if has_remote else "")
-
-            is_ready = exists and has_commits and has_remote
-            self.add_result('git', is_ready, 'Git ready' if is_ready else 'Git not fully configured')
-            return is_ready
-        else:
-            self.print_check("Git NOT initialized", False, "Run: git init")
-            self.add_result('git', False, 'Git not initialized')
+            self.print_check("README.md NOT found (root)", False, "Create README.md in root")
+            self.add_result('readme', False, 'README.md missing')
             return False
 
     def check_readme_content(self) -> bool:
@@ -317,31 +272,235 @@ class Phase8Verifier(PhaseVerifier):
                 'System Architecture',
                 'Technology Stack',
                 'Quick Start',
-                'Dashboard Features'
+                'Dashboard Features',
+                'Verification System',
+                'Troubleshooting',
+                'Performance',
+                'Security Considerations'
             ]
 
-            found_sections = [section for section in required_sections if section in content]
-            self.print_check(f"Found {len(found_sections)}/{len(required_sections)} required sections", 
+            found_sections = []
+            for section in required_sections:
+                if section in content:
+                    found_sections.append(section)
+
+            self.print_check(f"Found {len(found_sections)}/{len(required_sections)} required sections",
                            len(found_sections) == len(required_sections))
 
+            # Check for badges
             has_badges = 'badge' in content.lower() or 'img.shields.io' in content
             self.print_check("Badges present", has_badges)
 
+            # Check for code blocks
+            has_code_blocks = '```' in content
+            self.print_check("Code blocks present", has_code_blocks)
+
             all_good = len(found_sections) == len(required_sections)
-            self.add_result('readme_content', all_good, 'README complete' if all_good else 'Some sections missing')
+            self.add_result('readme_content', all_good,
+                            'README complete' if all_good else 'Some sections missing')
             return all_good
         except Exception as e:
             self.print_check("README check failed", False, str(e))
             self.add_result('readme_content', False, 'Check failed')
             return False
 
+    def check_license(self) -> bool:
+        """Verify LICENSE exists."""
+        self.print_section("License")
+
+        license_path = self.project_root / 'LICENSE'
+        exists = license_path.exists()
+
+        if exists:
+            size_kb = license_path.stat().st_size / 1024
+            with open(license_path, 'r') as f:
+                content = f.read()
+            has_mit = 'MIT' in content or 'Permission' in content
+            self.print_check("LICENSE exists", True, f"{size_kb:.1f} KB")
+            self.print_check("MIT License content", has_mit)
+            self.add_result('license', True, 'LICENSE present')
+            return True
+        else:
+            self.print_check("LICENSE NOT found", False, "Add MIT License")
+            self.add_result('license', False, 'LICENSE missing')
+            return False
+
+    def check_gitignore(self) -> bool:
+        """Verify .gitignore exists."""
+        self.print_section("Gitignore")
+
+        gitignore_path = self.project_root / '.gitignore'
+        exists = gitignore_path.exists()
+
+        if exists:
+            with open(gitignore_path, 'r') as f:
+                content = f.read()
+
+            required_entries = ['venv', '__pycache__', '.env', '*.csv', '.DS_Store']
+            found_entries = [entry for entry in required_entries if entry in content]
+
+            self.print_check(".gitignore exists", True)
+            self.print_check(f"Found {len(found_entries)}/{len(required_entries)} required entries",
+                           len(found_entries) == len(required_entries))
+
+            self.add_result('gitignore', True, '.gitignore configured')
+            return True
+        else:
+            self.print_check(".gitignore NOT found", False, "Create .gitignore")
+            self.add_result('gitignore', False, '.gitignore missing')
+            return False
+
+    def check_git(self) -> bool:
+        """Verify Git is initialized."""
+        self.print_section("Git Status")
+
+        git_dir = self.project_root / '.git'
+        exists = git_dir.exists()
+        self.print_check(".git directory exists", exists)
+
+        if not exists:
+            self.print_check("Git NOT initialized", False, "Run: git init")
+            self.add_result('git', False, 'Git not initialized')
+            return False
+
+        # Check commits
+        success, output = self._run_git_command(['git', 'log', '--oneline'])
+        has_commits = success and output
+        commit_count = len(output.split('\n')) if output else 0
+        self.print_check(f"Git commits exist ({commit_count} commits)", has_commits)
+
+        # Check remote
+        success, remote = self._run_git_command(['git', 'remote', 'get-url', 'origin'])
+        has_remote = success and remote
+        self.print_check("Git remote configured", has_remote, remote if has_remote else "")
+
+        # Check branch
+        success, branch = self._run_git_command(['git', 'branch', '--show-current'])
+        has_branch = success and branch
+        self.print_check(f"Current branch: {branch if has_branch else 'None'}", has_branch)
+
+        is_ready = exists and has_commits and has_remote and has_branch
+        self.add_result('git', is_ready, 'Git ready' if is_ready else 'Git not fully configured')
+        return is_ready
+
+    def check_github_repo(self) -> bool:
+        """Verify GitHub repository is configured."""
+        self.print_section("GitHub Repository")
+
+        success, remote = self._run_git_command(['git', 'remote', 'get-url', 'origin'])
+
+        if not success or not remote:
+            self.print_check("GitHub remote not configured", False)
+            self.add_result('github_repo', False, 'GitHub remote missing')
+            return False
+
+        is_github = 'github.com' in remote
+        self.print_check("GitHub remote configured", is_github, remote)
+
+        # Check if it's a public repo (can't fully verify without API)
+        self.print_check("Repository should be public", True,
+                        "Verify manually at https://github.com")
+
+        self.add_result('github_repo', is_github,
+                        'GitHub repository configured' if is_github else 'Not a GitHub remote')
+        return is_github
+
+    def check_docs_folder(self) -> bool:
+        """Verify docs folder exists with diagrams."""
+        self.print_section("Docs Folder")
+
+        docs_path = self.project_root / 'docs'
+        exists = docs_path.exists() and docs_path.is_dir()
+        self.print_check("docs/ folder exists", exists)
+
+        if exists:
+            diagrams_path = docs_path / 'diagrams'
+            diagrams_exists = diagrams_path.exists() and diagrams_path.is_dir()
+            self.print_check("docs/diagrams/ folder exists", diagrams_exists)
+
+            if diagrams_exists:
+                diagram_files = list(diagrams_path.glob('*'))
+                self.print_check(f"Diagrams found: {len(diagram_files)} files", len(diagram_files) > 0)
+
+        all_good = exists
+        self.add_result('docs_folder', all_good,
+                        'Docs folder ready' if all_good else 'Docs folder missing')
+        return all_good
+
+    def check_environment_file(self) -> bool:
+        """Verify .env file exists."""
+        self.print_section("Environment File")
+
+        env_path = self.project_root / '.env'
+        exists = env_path.exists()
+
+        if exists:
+            size_kb = env_path.stat().st_size / 1024
+            self.print_check(".env file exists", True, f"{size_kb:.1f} KB")
+
+            # Check for required variables
+            try:
+                with open(env_path, 'r') as f:
+                    content = f.read()
+
+                required_vars = ['POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DB']
+                found_vars = [var for var in required_vars if var in content]
+
+                self.print_check(f"Found {len(found_vars)}/{len(required_vars)} required env vars",
+                               len(found_vars) == len(required_vars))
+            except Exception:
+                self.print_check("Cannot read .env file", False)
+
+            self.add_result('environment_file', True, '.env file present')
+            return True
+        else:
+            self.print_check(".env file NOT found", False, "Create .env from .env.example")
+            self.add_result('environment_file', False, '.env missing')
+            return False
+
+    def check_requirements(self) -> bool:
+        """Verify requirements.txt exists."""
+        self.print_section("Requirements")
+
+        req_path = self.project_root / 'requirements.txt'
+        exists = req_path.exists()
+
+        if exists:
+            size_kb = req_path.stat().st_size / 1024
+            self.print_check("requirements.txt exists", True, f"{size_kb:.1f} KB")
+
+            # Check for required packages
+            try:
+                with open(req_path, 'r') as f:
+                    content = f.read()
+
+                required_packages = ['pandas', 'sqlalchemy', 'streamlit', 'plotly', 'apache-airflow']
+                found_packages = [pkg for pkg in required_packages if pkg in content]
+
+                self.print_check(f"Found {len(found_packages)}/{len(required_packages)} required packages",
+                               len(found_packages) == len(required_packages))
+            except Exception:
+                self.print_check("Cannot read requirements.txt", False)
+
+            self.add_result('requirements', True, 'requirements.txt present')
+            return True
+        else:
+            self.print_check("requirements.txt NOT found", False)
+            self.add_result('requirements', False, 'requirements.txt missing')
+            return False
+
     def run(self) -> bool:
         """Run all Phase 8 checks."""
         self.check_documentation_files()
+        self.check_readme()
+        self.check_readme_content()
         self.check_license()
         self.check_gitignore()
         self.check_git()
-        self.check_readme_content()
+        self.check_github_repo()
+        self.check_docs_folder()
+        self.check_environment_file()
+        self.check_requirements()
 
         self.display_summary()
         self.save_json_report()

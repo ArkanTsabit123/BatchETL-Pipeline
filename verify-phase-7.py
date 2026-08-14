@@ -5,6 +5,7 @@ Phase 7: Screenshots Documentation Verification
 Checks performed:
     - architecture-diagram.png exists
     - data-flow-diagram.png exists
+    - erd-diagram.png exists
     - 01-folder-structure.png exists
     - 02-dataset-downloaded.png exists
     - 03-airflow-dag-list.png exists
@@ -21,6 +22,9 @@ Checks performed:
     - 14-docker-compose.png exists
     - 15-airflow-log.png exists
     - 16-dashboard-with-filter.png exists
+    - 17-streamlit-cloud-deploy.png exists (PENDING)
+    - 18-live-demo-dashboard.png exists (PENDING)
+    - 19-live-demo-url.png exists (PENDING)
 """
 
 import os
@@ -196,9 +200,255 @@ class Phase7Verifier(PhaseVerifier):
         """Verify all screenshot files exist."""
         self.print_section("Screenshots")
 
-        screenshots = [
+        # Architecture Diagrams (3)
+        diagram_screenshots = [
             'architecture-diagram.png',
             'data-flow-diagram.png',
+            'erd-diagram.png'
+        ]
+
+        # Level 1: Mandatory (8)
+        mandatory_screenshots = [
+            '01-folder-structure.png',
+            '02-dataset-downloaded.png',
+            '03-airflow-dag-list.png',
+            '04-airflow-grid-success.png',
+            '05-airflow-tree-success.png',
+            '06-postgres-data.png',
+            '07-dashboard-overview.png',
+            '08-dashboard-charts.png'
+        ]
+
+        # Level 2: Recommended (4)
+        recommended_screenshots = [
+            '09-airflow-dag-code.png',
+            '10-extract-script.png',
+            '11-transform-script.png',
+            '12-load-script.png'
+        ]
+
+        # Level 3: Value-Add (4)
+        value_add_screenshots = [
+            '13-dashboard-code.png',
+            '14-docker-compose.png',
+            '15-airflow-log.png',
+            '16-dashboard-with-filter.png'
+        ]
+
+        # Level 4: Live Demo (3) - PENDING
+        live_demo_screenshots = [
+            '17-streamlit-cloud-deploy.png',
+            '18-live-demo-dashboard.png',
+            '19-live-demo-url.png'
+        ]
+
+        all_exist = True
+
+        # Check Architecture Diagrams
+        self.print_check("Architecture Diagrams (3)", True)
+        for screenshot in diagram_screenshots:
+            file_path = self.project_root / 'screenshots' / screenshot
+            exists = file_path.exists()
+            if exists:
+                size_kb = file_path.stat().st_size / 1024
+                self.print_check(f"  {screenshot}", True, f"{size_kb:.1f} KB")
+            else:
+                self.print_check(f"  {screenshot}", False, "Not found")
+                all_exist = False
+
+        # Check Level 1: Mandatory
+        self.print_check("\nLevel 1: Mandatory (8)", True)
+        for screenshot in mandatory_screenshots:
+            file_path = self.project_root / 'screenshots' / screenshot
+            exists = file_path.exists()
+            if exists:
+                size_kb = file_path.stat().st_size / 1024
+                self.print_check(f"  {screenshot}", True, f"{size_kb:.1f} KB")
+            else:
+                self.print_check(f"  {screenshot}", False, "Not found")
+                all_exist = False
+
+        # Check Level 2: Recommended
+        self.print_check("\nLevel 2: Recommended (4)", True)
+        for screenshot in recommended_screenshots:
+            file_path = self.project_root / 'screenshots' / screenshot
+            exists = file_path.exists()
+            if exists:
+                size_kb = file_path.stat().st_size / 1024
+                self.print_check(f"  {screenshot}", True, f"{size_kb:.1f} KB")
+            else:
+                self.print_check(f"  {screenshot}", False, "Not found")
+                all_exist = False
+
+        # Check Level 3: Value-Add
+        self.print_check("\nLevel 3: Value-Add (4)", True)
+        for screenshot in value_add_screenshots:
+            file_path = self.project_root / 'screenshots' / screenshot
+            exists = file_path.exists()
+            if exists:
+                size_kb = file_path.stat().st_size / 1024
+                self.print_check(f"  {screenshot}", True, f"{size_kb:.1f} KB")
+            else:
+                self.print_check(f"  {screenshot}", False, "Not found")
+                all_exist = False
+
+        # Check Level 4: Live Demo (PENDING)
+        self.print_check("\nLevel 4: Live Demo (3) - PENDING", False)
+        for screenshot in live_demo_screenshots:
+            file_path = self.project_root / 'screenshots' / screenshot
+            exists = file_path.exists()
+            if exists:
+                size_kb = file_path.stat().st_size / 1024
+                self.print_check(f"  {screenshot}", True, f"{size_kb:.1f} KB")
+            else:
+                self.print_check(f"  {screenshot}", False, "PENDING - Deploy to Streamlit Cloud first")
+                # Note: These are expected to be pending, not a failure
+
+        # Count passed screenshots
+        total_screenshots = (len(diagram_screenshots) + len(mandatory_screenshots) +
+                            len(recommended_screenshots) + len(value_add_screenshots) +
+                            len(live_demo_screenshots))
+
+        passed_screenshots = 0
+        for screenshot in (diagram_screenshots + mandatory_screenshots +
+                          recommended_screenshots + value_add_screenshots):
+            file_path = self.project_root / 'screenshots' / screenshot
+            if file_path.exists():
+                passed_screenshots += 1
+
+        # Check live demo screenshots separately
+        live_demo_passed = 0
+        for screenshot in live_demo_screenshots:
+            file_path = self.project_root / 'screenshots' / screenshot
+            if file_path.exists():
+                live_demo_passed += 1
+                passed_screenshots += 1
+
+        self.print_check(f"\nScreenshots Summary:", True)
+        self.print_check(f"  Total screenshots: {total_screenshots}", True)
+        self.print_check(f"  Present: {passed_screenshots}", True)
+        self.print_check(f"  Pending: {total_screenshots - passed_screenshots}",
+                        total_screenshots - passed_screenshots == 3,
+                        f"Expected 3 pending (Live Demo screenshots)")
+
+        # Check screenshots directory exists
+        screenshots_dir = self.project_root / 'screenshots'
+        dir_exists = screenshots_dir.exists() and screenshots_dir.is_dir()
+        if not dir_exists:
+            self.print_check("screenshots/ directory exists", False, "Directory not found")
+            all_exist = False
+
+        # Only fail if required screenshots (Levels 1-3) are missing
+        required_passed = passed_screenshots - live_demo_passed
+        required_total = total_screenshots - len(live_demo_screenshots)
+        is_valid = required_passed == required_total and dir_exists
+
+        self.add_result('screenshots', is_valid,
+                        f'{passed_screenshots}/{total_screenshots} screenshots present '
+                        f'({required_passed}/{required_total} required)' if is_valid
+                        else f'Screenshots missing: {required_total - required_passed} required screenshots not found')
+        return is_valid
+
+    def check_screenshot_quality(self) -> bool:
+        """Verify screenshot quality (size and resolution)."""
+        self.print_section("Screenshot Quality")
+
+        screenshots_dir = self.project_root / 'screenshots'
+        if not screenshots_dir.exists():
+            self.print_check("screenshots/ directory not found", False)
+            self.add_result('screenshot_quality', False, 'Directory not found')
+            return False
+
+        png_files = list(screenshots_dir.glob('*.png'))
+        if not png_files:
+            self.print_check("No PNG files found", False)
+            self.add_result('screenshot_quality', False, 'No screenshots')
+            return False
+
+        # Check file sizes
+        all_valid = True
+        min_size_kb = 50  # Minimum reasonable size for a screenshot
+        max_size_kb = 2048  # Maximum reasonable size (2MB)
+
+        for png_file in png_files:
+            size_kb = png_file.stat().st_size / 1024
+            is_valid_size = min_size_kb <= size_kb <= max_size_kb
+
+            # Skip check for files that are too small (likely placeholders)
+            if size_kb < 1:
+                continue
+
+            status_text = f"{png_file.name}: {size_kb:.1f} KB"
+            if is_valid_size:
+                self.print_check(f"  {status_text}", True)
+            else:
+                if size_kb < min_size_kb:
+                    self.print_check(f"  {status_text}", False, "File too small (<50KB)")
+                else:
+                    self.print_check(f"  {status_text}", False, "File too large (>2MB)")
+                all_valid = False
+
+        self.add_result('screenshot_quality', all_valid,
+                        'All screenshots have reasonable size' if all_valid else 'Some screenshots have unusual size')
+        return all_valid
+
+    def check_screenshot_naming(self) -> bool:
+        """Verify screenshot naming convention."""
+        self.print_section("Screenshot Naming Convention")
+
+        expected_patterns = [
+            r'^01-folder-structure\.png$',
+            r'^02-dataset-downloaded\.png$',
+            r'^03-airflow-dag-list\.png$',
+            r'^04-airflow-grid-success\.png$',
+            r'^05-airflow-tree-success\.png$',
+            r'^06-postgres-data\.png$',
+            r'^07-dashboard-overview\.png$',
+            r'^08-dashboard-charts\.png$',
+            r'^09-airflow-dag-code\.png$',
+            r'^10-extract-script\.png$',
+            r'^11-transform-script\.png$',
+            r'^12-load-script\.png$',
+            r'^13-dashboard-code\.png$',
+            r'^14-docker-compose\.png$',
+            r'^15-airflow-log\.png$',
+            r'^16-dashboard-with-filter\.png$',
+            r'^architecture-diagram\.png$',
+            r'^data-flow-diagram\.png$',
+            r'^erd-diagram\.png$'
+        ]
+
+        import re
+        screenshots_dir = self.project_root / 'screenshots'
+        if not screenshots_dir.exists():
+            self.print_check("screenshots/ directory not found", False)
+            self.add_result('screenshot_naming', False, 'Directory not found')
+            return False
+
+        png_files = [f.name for f in screenshots_dir.glob('*.png')]
+        if not png_files:
+            self.print_check("No PNG files found", False)
+            self.add_result('screenshot_naming', False, 'No screenshots')
+            return False
+
+        # Check each file against expected patterns
+        all_valid = True
+        found_patterns = []
+
+        for file_name in png_files:
+            matched = False
+            for pattern in expected_patterns:
+                if re.match(pattern, file_name):
+                    matched = True
+                    found_patterns.append(file_name)
+                    break
+
+            if not matched:
+                self.print_check(f"  {file_name}", False, "Does not follow naming convention")
+                all_valid = False
+
+        # Check for missing expected files
+        expected_files = [
             '01-folder-structure.png',
             '02-dataset-downloaded.png',
             '03-airflow-dag-list.png',
@@ -214,27 +464,32 @@ class Phase7Verifier(PhaseVerifier):
             '13-dashboard-code.png',
             '14-docker-compose.png',
             '15-airflow-log.png',
-            '16-dashboard-with-filter.png'
+            '16-dashboard-with-filter.png',
+            'architecture-diagram.png',
+            'data-flow-diagram.png',
+            'erd-diagram.png'
         ]
 
-        all_exist = True
-        for screenshot in screenshots:
-            file_path = self.project_root / 'screenshots' / screenshot
-            exists = file_path.exists()
+        missing_files = [f for f in expected_files if f not in png_files]
+        if missing_files:
+            self.print_check(f"\nMissing expected files: {len(missing_files)}", False)
+            for f in missing_files[:5]:  # Show first 5 missing
+                self.print_check(f"  {f}", False, "Not found")
+            if len(missing_files) > 5:
+                self.print_check(f"  ... and {len(missing_files) - 5} more", False)
+            all_valid = False
+        else:
+            self.print_check("All expected files present", True)
 
-            if exists:
-                size_kb = file_path.stat().st_size / 1024
-                self.print_check(f"{screenshot}", True, f"{size_kb:.1f} KB")
-            else:
-                self.print_check(f"{screenshot}", False, "Not found")
-                all_exist = False
-
-        self.add_result('screenshots', all_exist, f'{len(screenshots)} screenshots' if all_exist else 'Some screenshots missing')
-        return all_exist
+        self.add_result('screenshot_naming', all_valid,
+                        'Screenshot naming convention followed' if all_valid else 'Naming issues found')
+        return all_valid
 
     def run(self) -> bool:
         """Run all Phase 7 checks."""
         self.check_screenshots()
+        self.check_screenshot_quality()
+        self.check_screenshot_naming()
 
         self.display_summary()
         self.save_json_report()
