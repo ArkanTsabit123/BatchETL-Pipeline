@@ -72,7 +72,7 @@ warehouse/*.journal
 !warehouse/.gitkeep
 
 # ============================================
-# Data Files - Track sample, exclude large
+# Data Files
 # ============================================
 data/raw/*.csv
 !data/raw/.gitkeep
@@ -161,17 +161,6 @@ coverage.xml
 *.patch
 
 # ============================================
-# Verification Reports
-# ============================================
-phase*_verification.json
-phase*_verification_report.txt
-
-# ============================================
-# Data Inspection
-# ============================================
-data_inspection_report.json
-
-# ============================================
 # Local Development
 # ============================================
 local.env
@@ -193,7 +182,7 @@ secrets/
 *.secrets
 
 # ============================================
-# Archive Files (generated)
+# Archive Files
 # ============================================
 *.zip
 *.tar.gz
@@ -253,7 +242,7 @@ instance/
 .webassets-cache
 
 # ============================================
-# Node (if used)
+# Node
 # ============================================
 node_modules/
 npm-debug.log*
@@ -276,7 +265,7 @@ out/
 *.min.css
 
 # ============================================
-# Media Files (ignore large files)
+# Media Files
 # ============================================
 *.mp3
 *.wav
@@ -287,9 +276,8 @@ out/
 *.iso
 
 # ============================================
-# Screenshots - TRACK ALL SCREENSHOTS
+# Screenshots - TRACK ALL
 # ============================================
-# Do NOT ignore screenshots - they are documentation
 !screenshots/
 !screenshots/*.png
 !screenshots/*.jpg
@@ -324,7 +312,7 @@ batchetl-streamlit/__pycache__/
 .htpasswd
 
 # ============================================
-# Project Specific - BatchETL
+# Project Specific
 # ============================================
 /venv
 /__pycache__
@@ -338,3 +326,63 @@ batchetl-streamlit/__pycache__/
 *.secret.yml
 *.env.production
 *.env.staging
+
+# ============================================
+# Phase Verification 
+# ============================================
+phase*_verification.json
+phase*_verification_report.txt
+run_all_verifications.py
+verify-phase-*.py
+
+# ============================================
+# Troubleshooting 
+# ============================================
+troubleshoot*.py
+run_all_checks.py
+troubleshoot_config.py
+troubleshoot_utils.py
+
+# ============================================
+# Data Inspection & Structure 
+# ============================================
+data_inspection.py
+structure.py
+
+# ============================================
+# Linux/WSL Specific 
+# ============================================
+airflow-init.sh
+
+# ============================================
+# Docker Override 
+# ============================================
+docker-compose.override.yml
+
+# ============================================
+# Test Reports 
+# ============================================
+test_report_*.json
+*.report.json
+
+# ============================================
+# Large Data Files 
+# ============================================
+*.parquet
+*.duckdb
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================
+# Test Scripts (Hide all except pipeline_test.py and test_all.py)
+# ============================================
+run_tests.py
+verify.py
+health_check.py
+test_*.py
+*_test.py
+
+# Override: Track pipeline_test.py and test_all.py
+!pipeline_test.py
+!test_all.py

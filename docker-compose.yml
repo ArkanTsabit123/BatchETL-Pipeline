@@ -1,4 +1,5 @@
-version: '3.8'
+# docker-compose.yml
+# DESCRIPTION: Docker Compose configuration for BatchETL Pipeline with PostgreSQL, Airflow, and Streamlit services
 
 services:
   postgres:
