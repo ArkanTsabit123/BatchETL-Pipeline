@@ -6,8 +6,8 @@
 
 | Property | Value |
 |----------|-------|
-| Version | 2.1.0 |
-| Last Updated | 2026-08-15 |
+| Version | 3.0.0 |
+| Last Updated | 2026-08-17 |
 | Purpose | Quick reference for development and deployment |
 
 ---
@@ -148,8 +148,11 @@ docker network disconnect batchetlpipeline_batch-etl-network container_name
 # Airflow UI
 http://localhost:8080
 
-# Streamlit Dashboard
+# Streamlit Dashboard (Local)
 http://localhost:8501
+
+# Streamlit Dashboard (Live Demo)
+https://batchetl.streamlit.app
 
 # PostgreSQL
 localhost:5432
@@ -400,8 +403,9 @@ open http://localhost:8080    # Mac
 # Click "Trigger DAG" on etl_pipeline
 
 # 5. Open Dashboard
-start http://localhost:8501   # Windows
-open http://localhost:8501    # Mac
+start http://localhost:8501   # Windows (Local)
+open http://localhost:8501    # Mac (Local)
+# Or open live demo: https://batchetl.streamlit.app
 ```
 
 ### Manual Pipeline Run
@@ -743,7 +747,8 @@ rm -rf venv __pycache__ .pytest_cache
 | Service | URL |
 |---------|-----|
 | Airflow UI | http://localhost:8080 |
-| Streamlit Dashboard | http://localhost:8501 |
+| Streamlit Dashboard (Local) | http://localhost:8501 |
+| Streamlit Dashboard (Live Demo) | https://batchetl.streamlit.app |
 | PostgreSQL | localhost:5432 |
 | NYC Taxi Data | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
 
@@ -791,7 +796,8 @@ rm -rf venv __pycache__ .pytest_cache
 | Extract Script | scripts/extract.py |
 | Transform Script | scripts/transform.py |
 | Load Script | scripts/load.py |
-| Dashboard | dashboard/app.py |
+| Dashboard (Local) | dashboard/app.py |
+| Dashboard (Cloud) | batchetl-streamlit/app.py |
 | Dashboard Dockerfile | dashboard/Dockerfile |
 | Raw Data | data/raw/taxi_data.csv |
 | Staging Data | data/staging/taxi_raw.csv |
@@ -804,6 +810,7 @@ rm -rf venv __pycache__ .pytest_cache
 | Blueprint | docs/blueprint.md |
 | Cheatsheet | docs/cheatsheets.md |
 | Verification Checklist | docs/verification-checklist.md |
+| Changelog | CHANGELOG.md |
 | Architecture Diagram Script | archive/architecture-diagram.py |
 | Data Flow Diagram Script | archive/data-flow-diagram.py |
 | ERD Diagram Script | archive/erd-diagram.py |
@@ -927,8 +934,11 @@ docker-compose down -v && docker-compose up -d
 # AIRFLOW UI
 http://localhost:8080 (admin/admin)
 
-# DASHBOARD
+# DASHBOARD (LOCAL)
 http://localhost:8501
+
+# DASHBOARD (LIVE DEMO)
+https://batchetl.streamlit.app
 
 # POSTGRES CONNECT
 docker exec -it batch-etl-postgres psql -U admin -d warehouse
@@ -969,5 +979,5 @@ docker-compose down -v && docker-compose up -d
 
 ---
 
-*Last Updated: 2026-08-15*
-*Version: 2.1.0*
+*Last Updated: 2026-08-17*
+*Version: 3.0.0*

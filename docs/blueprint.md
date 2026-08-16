@@ -6,8 +6,8 @@
 
 | Property | Value |
 |----------|-------|
-| Version | 2.1.0 |
-| Last Updated | 2026-08-15 |
+| Version | 3.0.0 |
+| Last Updated | 2026-08-17 |
 | Status | Production Ready |
 | Orchestration | Apache Airflow 2.7.3 |
 | Database | PostgreSQL 15 |
@@ -60,7 +60,7 @@
 | Dashboard | 5 KPIs, 4 charts, 5 filters | Yes |
 | Data Rows Processed | 100,000 plus | 2,869,525 |
 | Total Rows in Database | 100,000 plus | 20,117,150 |
-| Live Demo | Publicly accessible | In Progress |
+| Live Demo | Publicly accessible | Yes |
 
 ### 1.3 Dataset Information
 
@@ -153,10 +153,10 @@
 |  |  |   - http://localhost:8501                                           |   |  |
 |  |  +---------------------------------------------------------------------+   |  |
 |  |  +---------------------------------------------------------------------+   |  |
-|  |  |   CLOUD DEPLOYMENT (Streamlit Cloud)                                |   |  |
+|  |  |   CLOUD DEPLOYMENT (Streamlit)                                      |   |  |
 |  |  |   - Sample dataset (100K rows)                                     |   |  |
 |  |  |   - CSV direct read                                                 |   |  |
-|  |  |   - https://username.streamlit.app                                  |   |  |
+|  |  |   - https://batchetl.streamlit.app                                  |   |  |
 |  |  +---------------------------------------------------------------------+   |  |
 |  +-----------------------------------------------------------------------------+  |
 |                                                                                   |
@@ -437,6 +437,7 @@ batch-etl/
 ├── .gitignore                           # Git ignore rules
 ├── .env                                 # Environment variables
 ├── LICENSE                              # MIT License
+├── CHANGELOG.md                         # Release history
 │
 ├── dags/
 │   └── etl_pipeline.py                  # Airflow DAG definition
@@ -493,7 +494,10 @@ batch-etl/
 │   ├── 13-dashboard-code.png            # Dashboard code
 │   ├── 14-docker-compose.png            # Docker Compose file
 │   ├── 15-airflow-log.png               # Task log with row count
-│   └── 16-dashboard-with-filter.png     # Dashboard with filters applied
+│   ├── 16-dashboard-with-filter.png     # Dashboard with filters applied
+│   ├── 17-streamlit-cloud-deploy.png    # Streamlit Cloud deployment
+│   ├── 18-live-demo-dashboard.png       # Live demo dashboard
+│   └── 19-live-demo-url.png             # Live demo URL
 │
 ├── batchetl-streamlit/                  # Streamlit Cloud deployment
 │   ├── app.py                           # Standalone dashboard
@@ -810,7 +814,7 @@ Streamlit Cloud provides free hosting for the dashboard with auto-deploy from Gi
 | Source | PostgreSQL | CSV file |
 | Speed | Less than 200ms queries | Less than 500ms queries |
 | Cost | Free (local) | Free (cloud) |
-| URL | http://localhost:8501 | https://username.streamlit.app |
+| URL | http://localhost:8501 | https://batchetl.streamlit.app |
 
 ### 11.2 Deployment Structure
 
@@ -827,10 +831,10 @@ batchetl-streamlit/
 ### 11.3 requirements.txt
 
 ```txt
-pandas==2.0.3
-streamlit==1.29.0
-plotly==5.18.0
-numpy==1.24.3
+pandas>=2.1.0
+numpy>=1.26.0
+streamlit>=1.29.0
+plotly>=5.18.0
 ```
 
 ### 11.4 .streamlit/config.toml
@@ -867,9 +871,10 @@ cp ../dashboard/app.py .
 cp ../data/staging/taxi_clean_sample.csv data/
 
 # Create requirements.txt
-echo "pandas==2.0.3" > requirements.txt
-echo "streamlit==1.29.0" >> requirements.txt
-echo "plotly==5.18.0" >> requirements.txt
+echo "pandas>=2.1.0" > requirements.txt
+echo "numpy>=1.26.0" >> requirements.txt
+echo "streamlit>=1.29.0" >> requirements.txt
+echo "plotly>=5.18.0" >> requirements.txt
 
 # Deploy to Streamlit Cloud
 # Go to: https://share.streamlit.io
@@ -1044,8 +1049,9 @@ docker-compose down -v && docker-compose up -d
 
 | Resource | URL |
 |----------|-----|
+| Live Demo | https://batchetl.streamlit.app |
 | Airflow UI | http://localhost:8080 |
-| Dashboard | http://localhost:8501 |
+| Dashboard (Local) | http://localhost:8501 |
 | NYC Taxi Data (Yellow) | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
 | NYC Taxi Data (Green) | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
 | Airflow Docs | https://airflow.apache.org/docs/ |
@@ -1097,13 +1103,13 @@ docker-compose down -v && docker-compose up -d
 | 18 | 15-airflow-log.png | Task log showing row count after successful execution (2,964,624 rows extracted, 2,869,525 rows loaded). | COMPLETE |
 | 19 | 16-dashboard-with-filter.png | Dashboard with Fare Range filter applied showing updated KPIs and charts based on filtered data. | COMPLETE |
 
-### 18.5 Level 4: Live Demo (3 files) - PENDING
+### 18.5 Level 4: Live Demo (3 files)
 
 | No | Filename | Description | Status |
 |----|----------|-------------|--------|
-| 20 | 17-streamlit-cloud-deploy.png | Streamlit Cloud deployment success screen showing app URL, status, and build logs. | PENDING |
-| 21 | 18-live-demo-dashboard.png | Live dashboard running on streamlit.app showing all features working in production environment. | PENDING |
-| 22 | 19-live-demo-url.png | Browser showing the live demo URL (https://username.streamlit.app) with dashboard loaded. | PENDING |
+| 20 | 17-streamlit-cloud-deploy.png | Streamlit Cloud deployment success screen showing app URL, status, and build logs. | COMPLETE |
+| 21 | 18-live-demo-dashboard.png | Live dashboard running on streamlit.app showing all features working in production environment. | COMPLETE |
+| 22 | 19-live-demo-url.png | Browser showing the live demo URL (https://batchetl.streamlit.app) with dashboard loaded. | COMPLETE |
 
 ### 18.6 Screenshots Summary
 
@@ -1113,8 +1119,8 @@ docker-compose down -v && docker-compose up -d
 | Level 1 (Mandatory) | 8 | 8 | 0 | 100% |
 | Level 2 (Recommended) | 4 | 4 | 0 | 100% |
 | Level 3 (Value-Add) | 4 | 4 | 0 | 100% |
-| Level 4 (Live Demo) | 3 | 0 | 3 | 0% |
-| **Total** | **22** | **19** | **3** | **86.4%** |
+| Level 4 (Live Demo) | 3 | 3 | 0 | 100% |
+| **Total** | **22** | **22** | **0** | **100%** |
 
 ---
 
@@ -1261,10 +1267,10 @@ docker-compose down -v && docker-compose up -d
 | Level 1 (Mandatory) | 8 | 8 | 0 | 100% |
 | Level 2 (Recommended) | 4 | 4 | 0 | 100% |
 | Level 3 (Value-Add) | 4 | 4 | 0 | 100% |
-| Level 4 (Live Demo) | 3 | 0 | 3 | 0% |
-| **Total** | **22** | **19** | **3** | **86.4%** |
+| Level 4 (Live Demo) | 3 | 3 | 0 | 100% |
+| **Total** | **22** | **22** | **0** | **100%** |
 
-**Phase 7 Summary:** 19/22 passed - 86.4% Complete
+**Phase 7 Summary:** 22/22 passed - 100% Complete
 
 ### 19.8 Phase 8: Documentation and Local Deployment
 
@@ -1274,54 +1280,55 @@ docker-compose down -v && docker-compose up -d
 | 8.2 | blueprint.md completed | PASSED | Technical blueprint |
 | 8.3 | cheatsheets.md completed | PASSED | Quick reference |
 | 8.4 | verification-checklist.md completed | PASSED | Testing checklist |
-| 8.5 | LICENSE added | PASSED | MIT License |
-| 8.6 | .gitignore configured | PASSED | Python + Docker + Airflow |
-| 8.7 | Git initialized | PASSED | git init |
-| 8.8 | Git commit | PASSED | All files committed |
-| 8.9 | GitHub repository created | PASSED | Public repo |
-| 8.10 | Remote origin set | PASSED | git remote add origin |
-| 8.11 | Push to GitHub | PASSED | git push -u origin main |
-| 8.12 | README rendered on GitHub | PASSED | Check formatting |
-| 8.13 | Screenshots visible on GitHub | PASSED | Images render correctly |
-| 8.14 | LinkedIn post published | PASSED | Project showcase |
-| 8.15 | All badges display correctly | PASSED | Status badges working |
-| 8.16 | Repository has description | PASSED | Project description set |
-| 8.17 | Repository has website URL | PASSED | Link to dashboard |
-| 8.18 | Live Demo section added to README | PENDING | With URL and badge |
-| 8.19 | Deployment guide to Streamlit Cloud added | PENDING | Step-by-step instructions |
-| 8.20 | blueprint.md updated with cloud deployment | PASSED | Deployment strategy documented |
+| 8.5 | CHANGELOG.md completed | PASSED | Release history |
+| 8.6 | LICENSE added | PASSED | MIT License |
+| 8.7 | .gitignore configured | PASSED | Python + Docker + Airflow |
+| 8.8 | Git initialized | PASSED | git init |
+| 8.9 | Git commit | PASSED | All files committed |
+| 8.10 | GitHub repository created | PASSED | Public repo |
+| 8.11 | Remote origin set | PASSED | git remote add origin |
+| 8.12 | Push to GitHub | PASSED | git push -u origin main |
+| 8.13 | README rendered on GitHub | PASSED | Check formatting |
+| 8.14 | Screenshots visible on GitHub | PASSED | Images render correctly |
+| 8.15 | LinkedIn post published | PASSED | Project showcase |
+| 8.16 | All badges display correctly | PASSED | Status badges working |
+| 8.17 | Repository has description | PASSED | Project description set |
+| 8.18 | Repository has website URL | PASSED | Link to dashboard |
+| 8.19 | Live Demo section added to README | PASSED | With URL and badge |
+| 8.20 | Deployment guide to Streamlit Cloud added | PASSED | Step-by-step instructions |
+| 8.21 | blueprint.md updated with cloud deployment | PASSED | Deployment strategy documented |
 
-**Phase 8 Summary:** 17/20 passed - 85% Complete
+**Phase 8 Summary:** 21/21 passed - 100% Complete
 
 ### 19.9 Phase 9: Streamlit Cloud Deployment
 
 | No | Task | Status | Notes |
 |----|------|--------|-------|
-| 9.1 | Repository batchetl-streamlit created | PENDING | Separate repo for cloud deployment |
+| 9.1 | Repository batchetl-streamlit created | PASSED | Standalone app for cloud deployment |
 | 9.2 | Sample data created (100,000 rows) | PASSED | taxi_clean_sample.csv created |
 | 9.3 | Standalone app.py created | PASSED | Reads CSV directly (no database) |
 | 9.4 | requirements.txt for Streamlit created | PASSED | pandas, streamlit, plotly |
-| 9.5 | .streamlit/config.toml created | PENDING | Theme and server configuration |
+| 9.5 | .streamlit/config.toml created | PASSED | Theme and server configuration |
 | 9.6 | Folder structure prepared | PASSED | batchetl-streamlit/ with all files |
-| 9.7 | Files committed to GitHub | PENDING | git add . && git commit |
-| 9.8 | Pushed to GitHub repository | PENDING | git push origin main |
-| 9.9 | Deployed to Streamlit Cloud | PENDING | https://share.streamlit.io |
-| 9.10 | Deployment successful | PENDING | No errors during build |
-| 9.11 | App URL accessible | PENDING | https://username.streamlit.app |
-| 9.12 | Dashboard loads in browser | PENDING | URL opens correctly |
-| 9.13 | 5 KPIs display correctly | PENDING | All KPIs visible |
-| 9.14 | 4 charts render correctly | PENDING | All charts visible |
-| 9.15 | All 5 filters work | PENDING | Filters update data |
-| 9.16 | Data updates when filters applied | PENDING | KPIs and charts refresh |
-| 9.17 | Raw data table view works | PENDING | Expandable section shows data |
-| 9.18 | Load time less than 5 seconds | PENDING | Fast and responsive |
-| 9.19 | Mobile responsive | PENDING | Works on different screen sizes |
-| 9.20 | No errors in console | PENDING | Check browser developer tools |
-| 9.21 | README.md updated with live demo link | PENDING | Badge + URL |
-| 9.22 | Screenshots captured of live demo | PENDING | 17, 18, 19.png |
-| 9.23 | Verification checklist updated | PENDING | Mark all Phase 9 as complete |
+| 9.7 | Files committed to GitHub | PASSED | git add . && git commit |
+| 9.8 | Pushed to GitHub repository | PASSED | git push origin main |
+| 9.9 | Deployed to Streamlit Cloud | PASSED | https://share.streamlit.io |
+| 9.10 | Deployment successful | PASSED | No errors during build |
+| 9.11 | App URL accessible | PASSED | https://batchetl.streamlit.app |
+| 9.12 | Dashboard loads in browser | PASSED | URL opens correctly |
+| 9.13 | 5 KPIs display correctly | PASSED | Total Trips, Avg Fare, Avg Distance, Avg Passengers, Total Revenue |
+| 9.14 | 4 charts render correctly | PASSED | Revenue by Day, Trips per Hour, Fare Distribution, Distance vs Fare |
+| 9.15 | All 5 filters work | PASSED | Fare slider, Distance slider, Day multiselect, Payment type, Vendor |
+| 9.16 | Data updates when filters applied | PASSED | KPIs and charts refresh |
+| 9.17 | Raw data table view works | PASSED | Expandable section shows data |
+| 9.18 | Load time less than 5 seconds | PASSED | Fast and responsive |
+| 9.19 | Mobile responsive | PASSED | Works on different screen sizes |
+| 9.20 | No errors in console | PASSED | Check browser developer tools |
+| 9.21 | README.md updated with live demo link | PASSED | Badge + URL |
+| 9.22 | Screenshots captured of live demo | PASSED | 17, 18, 19.png |
+| 9.23 | Verification checklist updated | PASSED | Mark all Phase 9 as complete |
 
-**Phase 9 Summary:** 4/23 passed - 17.4% Complete
+**Phase 9 Summary:** 23/23 passed - 100% Complete
 
 ### 19.10 Overall Summary
 
@@ -1333,12 +1340,12 @@ docker-compose down -v && docker-compose up -d
 | Phase 4: Pipeline Execution | 13 | 13 | 0 | 0 | 100% | COMPLETE |
 | Phase 5: PostgreSQL Data Verification | 14 | 14 | 0 | 0 | 100% | COMPLETE |
 | Phase 6: Dashboard Verification (Local) | 23 | 23 | 0 | 0 | 100% | COMPLETE |
-| Phase 7: Screenshots Documentation | 22 | 19 | 0 | 3 | 86.4% | IN PROGRESS |
-| Phase 8: Documentation and Local Deployment | 20 | 17 | 0 | 3 | 85% | IN PROGRESS |
-| Phase 9: Streamlit Cloud Deployment | 23 | 4 | 0 | 19 | 17.4% | IN PROGRESS |
-| **TOTAL** | **156** | **131** | **0** | **25** | **84%** | **IN PROGRESS** |
+| Phase 7: Screenshots Documentation | 22 | 22 | 0 | 0 | 100% | COMPLETE |
+| Phase 8: Documentation and Local Deployment | 21 | 21 | 0 | 0 | 100% | COMPLETE |
+| Phase 9: Streamlit Cloud Deployment | 23 | 23 | 0 | 0 | 100% | COMPLETE |
+| **TOTAL** | **157** | **157** | **0** | **0** | **100%** | **COMPLETE** |
 
 ---
 
-*Last Updated: 2026-08-15*
-*Document Version: 2.1.0*
+*Last Updated: 2026-08-17*
+*Document Version: 3.0.0*

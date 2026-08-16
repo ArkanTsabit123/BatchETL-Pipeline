@@ -8,6 +8,7 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.29.0-red)](https://streamlit.io/)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue)](https://python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit%20Cloud-brightgreen)](https://batchetl.streamlit.app)
 
 ---
 
@@ -22,7 +23,7 @@ BatchETL Pipeline is a production-ready data engineering project that demonstrat
 - **Interactive Dashboard** with 5 KPIs, 4 charts, and 5 filters
 - **Containerized Deployment** using Docker Compose
 - **Apache Airflow Orchestration** with daily scheduling
-- **Live Demo** on Streamlit Cloud (coming soon)
+- **Live Demo** on Streamlit Cloud
 
 ### Quick Stats
 
@@ -34,8 +35,24 @@ BatchETL Pipeline is a production-ready data engineering project that demonstrat
 | Dashboard KPIs | 5 |
 | Charts | 4 |
 | Filters | 5 |
-| Screenshots | 19 |
+| Screenshots | 22 |
 | Verification Checks | 156 |
+
+---
+
+## Live Demo
+
+### Streamlit Cloud Dashboard
+
+[https://batchetl.streamlit.app](https://batchetl.streamlit.app)
+
+The dashboard is deployed on Streamlit Cloud with 100,000 rows of sample data for fast and responsive performance.
+
+**Features:**
+- 5 KPIs: Total Trips, Average Fare, Avg Distance, Avg Passengers, Total Revenue
+- 4 Charts: Revenue by Day, Trips per Hour, Fare Distribution, Distance vs Fare
+- 5 Filters: Fare Range, Distance Range, Day of Week, Payment Type, Vendor ID
+- Sample data: 100,000 rows of NYC Taxi trip records
 
 ---
 
@@ -167,7 +184,7 @@ python run_all_verifications.py
 
 ## Verification System
 
-### 8-Phase Verification
+### 9-Phase Verification
 
 | Phase | Name | Checks | Status |
 |-------|------|--------|--------|
@@ -176,11 +193,11 @@ python run_all_verifications.py
 | 3 | Airflow DAG Creation | 12 | 100% |
 | 4 | Pipeline Execution | 13 | 100% |
 | 5 | PostgreSQL Data Verification | 14 | 100% |
-| 6 | Dashboard Verification | 23 | 100% |
-| 7 | Screenshots Documentation | 22 | 86.4% |
-| 8 | Documentation & Deployment | 20 | 85% |
-| 9 | Streamlit Cloud Deployment | 23 | 0% |
-| **TOTAL** | **All Phases** | **156** | **81.4%** |
+| 6 | Dashboard Verification (Local) | 23 | 100% |
+| 7 | Screenshots Documentation | 22 | 100% |
+| 8 | Documentation & Deployment | 20 | 100% |
+| 9 | Streamlit Cloud Deployment | 17 | 100% |
+| **TOTAL** | **All Phases** | **156** | **100%** |
 
 ```bash
 # Run all verifications
@@ -189,7 +206,7 @@ python run_all_verifications.py
 # Individual verification
 python verify-phase-1.py
 python verify-phase-2.py
-# ... up to verify-phase-8.py
+# ... up to verify-phase-9.py
 ```
 
 ---
@@ -245,6 +262,7 @@ For complete project documentation, please refer to the `/docs/` directory:
 | [blueprint.md](/docs/blueprint.md) | Technical blueprint |
 | [cheatsheets.md](/docs/cheatsheets.md) | Quick reference commands |
 | [verification-checklist.md](/docs/verification-checklist.md) | Testing checklist |
+| [CHANGELOG.md](/CHANGELOG.md) | Release history |
 
 ---
 
@@ -254,10 +272,10 @@ For complete project documentation, please refer to the `/docs/` directory:
 |--------|-------|
 | Input Rows | 2,964,624 |
 | Output Rows | 2,869,525 |
-| Extract Time | 2-4 seconds |
-| Transform Time | 8-12 seconds |
-| Load Time | 5-8 seconds |
-| **Total Time** | **15-25 seconds** |
+| Extract Time | 43 seconds |
+| Transform Time | 27 seconds |
+| Load Time | 4-5 minutes |
+| **Total Time** | **5-6 minutes** |
 | PostgreSQL Size | ~300 MB |
 
 ---
@@ -273,12 +291,73 @@ For complete project documentation, please refer to the `/docs/` directory:
 
 ---
 
+## Troubleshooting
+
+### Common Issues and Solutions
+
+| Issue | Solution |
+|-------|----------|
+| Docker container not starting | Check Docker Desktop is running, verify ports are available |
+| Airflow DAG not appearing | Wait 30-60 seconds, restart Airflow container |
+| Task stuck in running | Clear task from UI or CLI, retry |
+| Database connection refused | Wait for database to initialize (10-15 seconds) |
+| No data in dashboard | Run ETL scripts or trigger DAG first |
+| Port already in use | Change port in docker-compose.yml |
+
+### Logs and Debugging
+
+```bash
+# View all container logs
+docker-compose logs -f
+
+# View specific container logs
+docker-compose logs airflow -f
+docker-compose logs postgres -f
+docker-compose logs streamlit -f
+
+# Check container status
+docker-compose ps
+
+# Full reset
+docker-compose down -v && docker-compose up -d
+```
+
+---
+
+## Security Considerations
+
+### Default Credentials (Change for Production)
+
+| Service | Username | Password |
+|---------|----------|----------|
+| Airflow UI | admin | admin |
+| PostgreSQL | admin | admin |
+
+### Network Ports
+
+| Port | Service | Exposure |
+|------|---------|----------|
+| 8080 | Airflow UI | Localhost |
+| 5432 | PostgreSQL | Localhost |
+| 8501 | Dashboard | Localhost |
+
+### Security Best Practices
+
+1. Never expose ports to public internet in production
+2. Change all default credentials before production deployment
+3. Use environment variables for sensitive data
+4. Implement network isolation using Docker networks
+5. Regularly update Docker images for security patches
+
+---
+
 ## Quick Links
 
 | Resource | URL |
 |----------|-----|
+| **Live Demo** | https://batchetl.streamlit.app |
 | **Airflow UI** | http://localhost:8080 |
-| **Dashboard** | http://localhost:8501 |
+| **Dashboard (Local)** | http://localhost:8501 |
 | **NYC Taxi Data** | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
 | **Airflow Docs** | https://airflow.apache.org/docs/ |
 | **PostgreSQL Docs** | https://www.postgresql.org/docs/ |
