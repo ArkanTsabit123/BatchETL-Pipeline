@@ -23,7 +23,7 @@ st.set_page_config(
 @st.cache_data(ttl=3600)
 def load_data():
     """Load sample data from CSV."""
-    data_path = 'data/taxi_clean_sample.csv'
+    data_path = 'data/staging/taxi_clean_sample.csv'
 
     if not os.path.exists(data_path):
         st.error(f"Data file not found: {data_path}")
