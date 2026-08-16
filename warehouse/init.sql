@@ -1,50 +1,52 @@
 -- =============================================================================
 -- BATCHETL PIPELINE - DATA WAREHOUSE SCHEMA
 -- =============================================================================
--- Database: MySQL
+-- Database: PostgreSQL
 -- Table: fact_trips
 -- =============================================================================
 
-
 -- =============================================================================
--- 1. CREATE DATABASE
--- =============================================================================
-
-DROP DATABASE IF EXISTS warehouse;
-
-CREATE DATABASE warehouse
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
-
-USE warehouse;
-
-
--- =============================================================================
--- 2. DROP TABLE IF EXISTS
+-- 1. DROP TABLE IF EXISTS
 -- =============================================================================
 
 DROP TABLE IF EXISTS fact_trips CASCADE;
 
-
 -- =============================================================================
--- 3. CREATE FACT TABLE
+-- 2. CREATE FACT TABLE
 -- =============================================================================
 
 CREATE TABLE fact_trips (
     trip_id             SERIAL          PRIMARY KEY,
-    vendor_id           SMALLINT        NULL,
-    payment_type        SMALLINT        NULL,
+    vendor_id           INTEGER         NULL,
+    payment_type        INTEGER         NULL,
     pickup_datetime     TIMESTAMP       NULL,
     dropoff_datetime    TIMESTAMP       NULL,
-    pickup_hour         SMALLINT        NULL,
+    pickup_hour         INTEGER         NULL,
     pickup_day          VARCHAR(20)     NULL,
-    pickup_month        SMALLINT        NULL,
-    passenger_count     SMALLINT        NULL,
-    trip_distance       REAL            NULL,
-    fare_amount         REAL            NULL,
-    total_amount        REAL            NULL
-) COMMENT='Central fact table for NYC Taxi trip analytics';
+    pickup_month        INTEGER         NULL,
+    passenger_count     INTEGER         NULL,
+    trip_distance       NUMERIC(10,2)   NULL,
+    fare_amount         NUMERIC(10,2)   NULL,
+    total_amount        NUMERIC(10,2)   NULL
+);
 
+-- =============================================================================
+-- 3. ADD TABLE COMMENTS
+-- =============================================================================
+
+COMMENT ON TABLE fact_trips IS 'Central fact table for NYC Taxi trip analytics';
+COMMENT ON COLUMN fact_trips.trip_id IS 'Surrogate primary key - auto-incrementing serial';
+COMMENT ON COLUMN fact_trips.vendor_id IS 'Vendor code: 1 = CMT, 2 = VeriFone';
+COMMENT ON COLUMN fact_trips.payment_type IS 'Payment code: 1=Credit, 2=Cash, 3=No Charge, 4=Dispute, 5=Unknown';
+COMMENT ON COLUMN fact_trips.pickup_datetime IS 'Trip start timestamp in NYC local time';
+COMMENT ON COLUMN fact_trips.dropoff_datetime IS 'Trip end timestamp in NYC local time';
+COMMENT ON COLUMN fact_trips.passenger_count IS 'Number of passengers in the trip';
+COMMENT ON COLUMN fact_trips.trip_distance IS 'Trip distance in miles';
+COMMENT ON COLUMN fact_trips.fare_amount IS 'Base fare amount in USD';
+COMMENT ON COLUMN fact_trips.total_amount IS 'Total amount including all fees in USD';
+COMMENT ON COLUMN fact_trips.pickup_hour IS 'Hour of pickup extracted from pickup_datetime (0-23)';
+COMMENT ON COLUMN fact_trips.pickup_day IS 'Day name extracted from pickup_datetime (Monday-Sunday)';
+COMMENT ON COLUMN fact_trips.pickup_month IS 'Month number extracted from pickup_datetime (1-12)';
 
 -- =============================================================================
 -- 4. CREATE INDEXES
@@ -59,27 +61,8 @@ CREATE INDEX idx_payment_type ON fact_trips(payment_type);
 CREATE INDEX idx_pickup_hour ON fact_trips(pickup_hour);
 CREATE INDEX idx_pickup_month ON fact_trips(pickup_month);
 
-
 -- =============================================================================
--- 5. ADD COLUMN COMMENTS (MySQL Syntax)
--- =============================================================================
-
-ALTER TABLE fact_trips MODIFY COLUMN trip_id SERIAL COMMENT 'Surrogate primary key - auto-incrementing serial';
-ALTER TABLE fact_trips MODIFY COLUMN vendor_id SMALLINT COMMENT 'Vendor code: 1 = CMT, 2 = VeriFone';
-ALTER TABLE fact_trips MODIFY COLUMN payment_type SMALLINT COMMENT 'Payment code: 1=Credit, 2=Cash, 3=No Charge, 4=Dispute, 5=Unknown';
-ALTER TABLE fact_trips MODIFY COLUMN pickup_datetime TIMESTAMP COMMENT 'Trip start timestamp in NYC local time';
-ALTER TABLE fact_trips MODIFY COLUMN dropoff_datetime TIMESTAMP COMMENT 'Trip end timestamp in NYC local time';
-ALTER TABLE fact_trips MODIFY COLUMN passenger_count SMALLINT COMMENT 'Number of passengers in the trip';
-ALTER TABLE fact_trips MODIFY COLUMN trip_distance REAL COMMENT 'Trip distance in miles';
-ALTER TABLE fact_trips MODIFY COLUMN fare_amount REAL COMMENT 'Base fare amount in USD';
-ALTER TABLE fact_trips MODIFY COLUMN total_amount REAL COMMENT 'Total amount including all fees in USD';
-ALTER TABLE fact_trips MODIFY COLUMN pickup_hour SMALLINT COMMENT 'Hour of pickup extracted from pickup_datetime (0-23)';
-ALTER TABLE fact_trips MODIFY COLUMN pickup_day VARCHAR(20) COMMENT 'Day name extracted from pickup_datetime (Monday-Sunday)';
-ALTER TABLE fact_trips MODIFY COLUMN pickup_month SMALLINT COMMENT 'Month number extracted from pickup_datetime (1-12)';
-
-
--- =============================================================================
--- 6. CREATE VIEWS
+-- 5. CREATE VIEWS
 -- =============================================================================
 
 CREATE OR REPLACE VIEW v_daily_summary AS
@@ -144,23 +127,21 @@ FROM fact_trips
 GROUP BY pickup_month
 ORDER BY pickup_month;
 
-
 -- =============================================================================
--- 7. CREATE FUNCTION
+-- 6. CREATE FUNCTION
 -- =============================================================================
 
-DELIMITER $$
-
-CREATE FUNCTION fn_trip_stats(
-    p_start_date DATETIME,
-    p_end_date DATETIME
+CREATE OR REPLACE FUNCTION fn_trip_stats(
+    p_start_date TIMESTAMP,
+    p_end_date TIMESTAMP
 )
 RETURNS JSON
-DETERMINISTIC
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_result JSON;
 BEGIN
-    DECLARE v_result JSON;
-    
-    SELECT JSON_OBJECT(
+    SELECT JSON_BUILD_OBJECT(
         'total_trips', COUNT(*),
         'avg_fare', AVG(fare_amount),
         'avg_distance', AVG(trip_distance),
@@ -171,26 +152,40 @@ BEGIN
     WHERE pickup_datetime BETWEEN p_start_date AND p_end_date;
     
     RETURN v_result;
-END$$
-
-DELIMITER ;
-
+END;
+$$;
 
 -- =============================================================================
--- 8. VERIFICATION QUERIES
+-- 7. VERIFICATION QUERIES
 -- =============================================================================
 
 SELECT 'Database: warehouse' AS info;
 SELECT 'Table: fact_trips created successfully' AS status;
-SELECT COUNT(*) AS table_count FROM information_schema.tables WHERE table_schema = 'warehouse';
+SELECT COUNT(*) AS table_count FROM information_schema.tables WHERE table_name = 'fact_trips';
 
 -- Check views
-SELECT TABLE_NAME FROM information_schema.views WHERE table_schema = 'warehouse';
+SELECT table_name FROM information_schema.views 
+WHERE table_name LIKE 'v_%'
+ORDER BY table_name;
 
 -- Check indexes
-SELECT INDEX_NAME FROM information_schema.statistics 
-WHERE table_schema = 'warehouse' AND table_name = 'fact_trips'
-GROUP BY INDEX_NAME;
+SELECT indexname FROM pg_indexes 
+WHERE tablename = 'fact_trips'
+ORDER BY indexname;
+
+-- Check column data types
+SELECT 
+    column_name,
+    data_type,
+    numeric_precision,
+    numeric_scale
+FROM information_schema.columns 
+WHERE table_name = 'fact_trips'
+ORDER BY ordinal_position;
+
+-- =============================================================================
+-- 8. SAMPLE QUERIES (Commented out for production)
+-- =============================================================================
 
 -- Count total rows
 -- SELECT COUNT(*) FROM fact_trips;
@@ -215,7 +210,6 @@ GROUP BY INDEX_NAME;
 
 -- Test function
 -- SELECT fn_trip_stats('2024-01-01', '2024-01-31') AS stats;
-
 
 -- =============================================================================
 -- END OF SCRIPT

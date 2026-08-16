@@ -29,6 +29,7 @@ def configure_page() -> None:
     """Set Streamlit page configuration."""
     st.set_page_config(
         page_title=PAGE_TITLE,
+        page_icon="🚕",
         layout=LAYOUT,
     )
 
