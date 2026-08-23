@@ -1,0 +1,58 @@
+# monitoring/alerts.yml
+groups:
+  - name: batchetl_alerts
+    interval: 30s
+    rules:
+      - alert: DAGFailed
+        expr: airflow_dag_run_state{dag_id="etl_pipeline"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ETL Pipeline DAG failed"
+          description: "DAG etl_pipeline has been failing for 5 minutes"
+
+      - alert: PipelineDelayed
+        expr: airflow_dag_run_duration_seconds{dag_id="etl_pipeline"} > 600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pipeline execution delayed"
+          description: "Pipeline took more than 10 minutes to complete"
+
+      - alert: DataVolumeDrop
+        expr: etl_rows_processed < 2500000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Data volume dropped significantly"
+          description: "Rows processed: {{ $value }} (below 2.5M threshold)"
+
+      - alert: DatabaseConnectionsHigh
+        expr: pg_stat_database_numbackends{datname="warehouse"} > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connections high"
+          description: "Connection count: {{ $value }} (threshold: 80)"
+
+      - alert: DataQualityLow
+        expr: (1 - etl_outliers_removed / etl_rows_processed) * 100 < 95
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Data quality score low"
+          description: "Quality score: {{ $value }}% (threshold: 95%)"
+
+      - alert: DatabaseCacheHitLow
+        expr: pg_stat_database_blks_hit / (pg_stat_database_blks_hit + pg_stat_database_blks_read) < 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database cache hit ratio low"
+          description: "Cache hit ratio: {{ $value }} (threshold: 0.9)"

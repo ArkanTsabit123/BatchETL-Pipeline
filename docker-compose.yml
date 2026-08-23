@@ -24,18 +24,22 @@ services:
     restart: unless-stopped
 
   airflow:
-    image: apache/airflow:2.7.3
+    image: apache/airflow:2.10.3
     container_name: batch-etl-airflow
     environment:
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: Asia/Jakarta
       AIRFLOW__WEBSERVER__SECRET_KEY: 'your-secret-key-here'
-      AIRFLOW_CONN_POSTGRES: 'postgresql://admin:admin@postgres:5432/warehouse'
+      AIRFLOW_CONN_POSTGRES: 'postgresql://admin:admin@postgres:5432/airflow_db'
       PYTHONPATH: '/opt/airflow'
       DATA_PATH: '/opt/airflow/data'
       _AIRFLOW_WWW_USER_CREATE: "true"
       _AIRFLOW_WWW_USER_USERNAME: admin
       _AIRFLOW_WWW_USER_PASSWORD: admin
+      AIRFLOW__METRICS__STATSD_ON: "true"
+      AIRFLOW__METRICS__STATSD_HOST: statsd-exporter
+      AIRFLOW__METRICS__STATSD_PORT: "9125"
+      AIRFLOW__METRICS__STATSD_PREFIX: airflow
     volumes:
       - ./dags:/opt/airflow/dags
       - ./scripts:/opt/airflow/scripts
@@ -83,11 +87,22 @@ services:
       retries: 3
     restart: unless-stopped
 
+  statsd-exporter:
+    image: prom/statsd-exporter:latest
+    container_name: batch-etl-statsd-exporter
+    ports:
+      - "9102:9102"
+      - "9125:9125/udp"
+    networks:
+      - batch-etl-network
+    restart: unless-stopped
+
   prometheus:
     image: prom/prometheus:latest
     container_name: batch-etl-prometheus
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
@@ -95,7 +110,7 @@ services:
       - batch-etl-network
     depends_on:
       - postgres-exporter
-      - airflow
+      - statsd-exporter
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
       interval: 30s

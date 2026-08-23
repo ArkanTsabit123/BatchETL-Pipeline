@@ -1,5 +1,6 @@
 # BatchETL Pipeline - Root Dependencies
 # For local development with Docker
+# python==3.10.11
 
 # Core Data Processing
 pandas==2.0.3
@@ -16,8 +17,15 @@ plotly==5.18.0
 # Orchestration
 apache-airflow==2.7.3
 
+# Monitoring 
+prometheus-client==0.19.0
+
+# AWS 
+boto3==1.43.78
+
 # Utilities
 python-dotenv==1.0.0
 requests==2.31.0
 
-# Verification Scripts (no additional dependencies needed)
+# Testing
+pytest==7.4.3

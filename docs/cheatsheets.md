@@ -7,7 +7,7 @@
 | Property | Value |
 |----------|-------|
 | Version | 4.0.0 |
-| Last Updated | 2026-08-21 |
+| Last Updated | 2026-08-23 |
 | Purpose | Quick reference for development and deployment |
 
 ---
@@ -21,9 +21,9 @@
 5. [Python Package Management](#5-python-package-management)
 6. [Running the Pipeline](#6-running-the-pipeline)
 7. [Dashboard Configuration](#7-dashboard-configuration)
-8. [Monitoring Commands (NEW)](#8-monitoring-commands)
-9. [AWS Commands (NEW)](#9-aws-commands)
-10. [Terraform Commands (NEW)](#10-terraform-commands)
+8. [Monitoring Commands](#8-monitoring-commands)
+9. [AWS Commands](#9-aws-commands)
+10. [Terraform Commands](#10-terraform-commands)
 11. [Project Structure Quick Reference](#11-project-structure-quick-reference)
 12. [Troubleshooting](#12-troubleshooting)
 13. [DAG Structure Template](#13-dag-structure-template)
@@ -168,13 +168,13 @@ http://localhost:8501
 # Streamlit Dashboard (Live Demo)
 https://batchetl.streamlit.app
 
-# Prometheus (NEW)
+# Prometheus
 http://localhost:9090
 
-# Grafana (NEW)
+# Grafana
 http://localhost:3000
 
-# PostgreSQL Exporter (NEW)
+# PostgreSQL Exporter
 http://localhost:9187/metrics
 
 # PostgreSQL
@@ -189,7 +189,7 @@ Airflow UI:
   Password: admin
   URL: http://localhost:8080
 
-Grafana (NEW):
+Grafana:
   Username: admin
   Password: admin
   URL: http://localhost:3000
@@ -201,7 +201,7 @@ PostgreSQL:
   Host: localhost
   Port: 5432
 
-Prometheus (NEW):
+Prometheus:
   No authentication required
   URL: http://localhost:9090
 ```
@@ -213,9 +213,9 @@ Prometheus (NEW):
 | Airflow UI | 8080 | 8080 | batch-etl-airflow |
 | PostgreSQL | 5432 | 5432 | batch-etl-postgres |
 | Streamlit | 8501 | 8501 | batch-etl-streamlit |
-| **Prometheus (NEW)** | **9090** | **9090** | **batch-etl-prometheus** |
-| **Grafana (NEW)** | **3000** | **3000** | **batch-etl-grafana** |
-| **PostgreSQL Exporter (NEW)** | **9187** | **9187** | **batch-etl-postgres-exporter** |
+| Prometheus | 9090 | 9090 | batch-etl-prometheus |
+| Grafana | 3000 | 3000 | batch-etl-grafana |
+| PostgreSQL Exporter | 9187 | 9187 | batch-etl-postgres-exporter |
 
 ---
 
@@ -371,10 +371,10 @@ ORDER BY revenue DESC;
 | Plotly | 5.18.0 |
 | Python | 3.10+ |
 | psycopg2-binary | 2.9.9 |
-| **Grafana (NEW)** | **10.2.0** |
-| **Prometheus (NEW)** | **2.47.0** |
-| **Terraform (NEW)** | **1.5.0** |
-| **AWS CLI (NEW)** | **Latest** |
+| Grafana | 10.2.0 |
+| Prometheus | 2.47.0 |
+| Terraform | 1.5.0 |
+| AWS CLI | Latest |
 
 ### Install Dependencies
 
@@ -552,7 +552,7 @@ streamlit run dashboard/app.py
 
 ---
 
-## 8. Monitoring Commands (NEW)
+## 8. Monitoring Commands
 
 ### Prometheus
 
@@ -638,7 +638,7 @@ curl http://localhost:9093/api/v1/alerts
 
 ---
 
-## 9. AWS Commands (NEW)
+## 9. AWS Commands
 
 ### AWS CLI Configuration
 
@@ -808,7 +808,7 @@ aws iam get-role --role-name mwaa-execution-role
 
 ---
 
-## 10. Terraform Commands (NEW)
+## 10. Terraform Commands
 
 ### Initialization
 
@@ -977,8 +977,8 @@ terraform providers schema -json > schema.json
 | data/staging/ | Intermediate files (taxi_raw.csv, taxi_clean.csv) |
 | warehouse/ | Database initialization (init.sql) |
 | dashboard/ | Streamlit app (app.py) + Dockerfile |
-| **monitoring/ (NEW)** | **Prometheus, Grafana, alerting configuration** |
-| **terraform/ (NEW)** | **Terraform modules for AWS infrastructure** |
+| monitoring/ | Prometheus, Grafana, alerting configuration |
+| terraform/ | Terraform modules for AWS infrastructure |
 | screenshots/ | Documentation screenshots |
 | docs/ | Documentation files (blueprint, cheatsheet, checklist) |
 | docs/diagrams/ | Diagram source files (PDF, XML, DBML, drawio, MWB) |
@@ -1024,7 +1024,7 @@ terraform providers schema -json > schema.json
 | Duplicate key error | Check primary key constraints, clear data |
 | Encoding issues | Set proper encoding in connection string |
 
-### Monitoring Issues (NEW)
+### Monitoring Issues
 
 | Issue | Solution |
 |-------|----------|
@@ -1035,7 +1035,7 @@ terraform providers schema -json > schema.json
 | Alert rules not firing | Check Prometheus evaluation interval, verify expression |
 | Metrics not showing | Check scrape interval, verify metrics path |
 
-### AWS + Terraform Issues (NEW)
+### AWS + Terraform Issues
 
 | Issue | Solution |
 |-------|----------|
@@ -1208,7 +1208,7 @@ docker exec -it batch-etl-airflow airflow dags list-runs --dag-id etl_pipeline
 docker exec -it batch-etl-airflow airflow dags list-runs --dag-id etl_pipeline --limit 1
 ```
 
-### Monitoring Verification (NEW)
+### Monitoring Verification
 
 ```bash
 # Check Prometheus targets
@@ -1239,17 +1239,19 @@ rm -rf venv __pycache__ .pytest_cache
 
 ---
 
-## 15. Important URLs| Service | URL |
+## 15. Important URLs
+
+| Service | URL |
 |---------|-----|
 | Airflow UI | http://localhost:8080 |
 | Streamlit Dashboard (Local) | http://localhost:8501 |
 | Streamlit Dashboard (Live Demo) | https://batchetl.streamlit.app |
-| **Prometheus (NEW)** | **http://localhost:9090** |
-| **Grafana (NEW)** | **http://localhost:3000** |
-| **PostgreSQL Exporter (NEW)** | **http://localhost:9187/metrics** |
-| **AWS RDS Console (NEW)** | **https://console.aws.amazon.com/rds** |
-| **AWS MWAA Console (NEW)** | **https://console.aws.amazon.com/mwaa** |
-| **AWS S3 Console (NEW)** | **https://console.aws.amazon.com/s3** |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 |
+| PostgreSQL Exporter | http://localhost:9187/metrics |
+| AWS RDS Console | https://console.aws.amazon.com/rds |
+| AWS MWAA Console | https://console.aws.amazon.com/mwaa |
+| AWS S3 Console | https://console.aws.amazon.com/s3 |
 | PostgreSQL | localhost:5432 |
 | NYC Taxi Data | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
 
@@ -1266,11 +1268,11 @@ rm -rf venv __pycache__ .pytest_cache
 | Pandas Docs | https://pandas.pydata.org/docs/ |
 | Docker Docs | https://docs.docker.com/ |
 | SQLAlchemy Docs | https://docs.sqlalchemy.org/ |
-| **Prometheus Docs (NEW)** | **https://prometheus.io/docs/** |
-| **Grafana Docs (NEW)** | **https://grafana.com/docs/** |
-| **Terraform Docs (NEW)** | **https://developer.hashicorp.com/terraform/docs** |
-| **AWS RDS Docs (NEW)** | **https://docs.aws.amazon.com/rds/** |
-| **AWS MWAA Docs (NEW)** | **https://docs.aws.amazon.com/mwaa/** |
+| Prometheus Docs | https://prometheus.io/docs/ |
+| Grafana Docs | https://grafana.com/docs/ |
+| Terraform Docs | https://developer.hashicorp.com/terraform/docs |
+| AWS RDS Docs | https://docs.aws.amazon.com/rds/ |
+| AWS MWAA Docs | https://docs.aws.amazon.com/mwaa/ |
 
 ---
 
@@ -1291,11 +1293,11 @@ rm -rf venv __pycache__ .pytest_cache
 13. Use docker exec for Airflow commands to avoid local installation
 14. Clear task instances when retrying failed tasks
 15. Monitor resource usage with docker stats
-16. **Use Grafana dashboards for real-time monitoring (NEW)**
-17. **Use Prometheus for metrics collection and alerting (NEW)**
-18. **Use Terraform for infrastructure as code (NEW)**
-19. **Always use AWS Secrets Manager for credentials in production (NEW)**
-20. **Enable CloudTrail for audit logging in AWS (NEW)**
+16. Use Grafana dashboards for real-time monitoring
+17. Use Prometheus for metrics collection and alerting
+18. Use Terraform for infrastructure as code
+19. Always use AWS Secrets Manager for credentials in production
+20. Enable CloudTrail for audit logging in AWS
 
 ---
 
@@ -1318,20 +1320,20 @@ rm -rf venv __pycache__ .pytest_cache
 | Docker Compose | docker-compose.yml |
 | Requirements | requirements.txt |
 | Environment | .env |
-| **Prometheus Config (NEW)** | **monitoring/prometheus.yml** |
-| **Alert Rules (NEW)** | **monitoring/alerts.yml** |
-| **Grafana Dashboards (NEW)** | **monitoring/grafana/dashboards/** |
-| **Grafana Datasource (NEW)** | **monitoring/grafana/datasources/** |
-| **ETL Exporter (NEW)** | **monitoring/exporters/etl_metrics.py** |
-| **Terraform Root (NEW)** | **terraform/main.tf** |
-| **Terraform Variables (NEW)** | **terraform/variables.tf** |
-| **Terraform Outputs (NEW)** | **terraform/outputs.tf** |
-| **Terraform RDS Module (NEW)** | **terraform/modules/rds/** |
-| **Terraform MWAA Module (NEW)** | **terraform/modules/mwaa/** |
-| **Terraform S3 Module (NEW)** | **terraform/modules/s3/** |
-| **Terraform Networking Module (NEW)** | **terraform/modules/networking/** |
-| **Terraform Monitoring Module (NEW)** | **terraform/modules/monitoring/** |
-| **Terraform Dev Config (NEW)** | **terraform/environments/dev/terraform.tfvars** |
+| Prometheus Config | monitoring/prometheus.yml |
+| Alert Rules | monitoring/alerts.yml |
+| Grafana Dashboards | monitoring/grafana/dashboards/ |
+| Grafana Datasource | monitoring/grafana/datasources/ |
+| ETL Exporter | monitoring/exporters/etl_metrics.py |
+| Terraform Root | terraform/main.tf |
+| Terraform Variables | terraform/variables.tf |
+| Terraform Outputs | terraform/outputs.tf |
+| Terraform RDS Module | terraform/modules/rds/ |
+| Terraform MWAA Module | terraform/modules/mwaa/ |
+| Terraform S3 Module | terraform/modules/s3/ |
+| Terraform Networking Module | terraform/modules/networking/ |
+| Terraform Monitoring Module | terraform/modules/monitoring/ |
+| Terraform Dev Config | terraform/environments/dev/terraform.tfvars |
 | Blueprint | docs/blueprint.md |
 | Cheatsheet | docs/cheatsheets.md |
 | Verification Checklist | docs/verification-checklist.md |
@@ -1363,13 +1365,13 @@ AIRFLOW__WEBSERVER__SECRET_KEY=your-secret-key-here
 AIRFLOW_CONN_POSTGRES=postgresql://admin:admin@postgres:5432/warehouse
 PYTHONPATH=/opt/airflow
 
-# Monitoring Environment Variables (NEW)
+# Monitoring Environment Variables
 GF_SECURITY_ADMIN_USER=admin
 GF_SECURITY_ADMIN_PASSWORD=admin
 GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel
 DATA_SOURCE_NAME=postgresql://admin:admin@postgres:5432/warehouse?sslmode=disable
 
-# AWS Environment Variables (NEW)
+# AWS Environment Variables
 AWS_ACCESS_KEY_ID=AKIAXXXXXXXX
 AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxx
 AWS_DEFAULT_REGION=us-east-1
@@ -1462,7 +1464,7 @@ python troubleshoot_aws.py
 # START SERVICES
 docker-compose up -d
 
-# START MONITORING ONLY (NEW)
+# START MONITORING ONLY
 docker-compose up -d prometheus grafana postgres-exporter
 
 # STATUS
@@ -1471,7 +1473,7 @@ docker-compose ps
 # LOGS
 docker-compose logs -f
 
-# LOGS - MONITORING (NEW)
+# LOGS - MONITORING
 docker-compose logs prometheus -f
 docker-compose logs grafana -f
 docker-compose logs postgres-exporter -f
@@ -1491,10 +1493,10 @@ http://localhost:8501
 # DASHBOARD (LIVE DEMO)
 https://batchetl.streamlit.app
 
-# PROMETHEUS (NEW)
+# PROMETHEUS
 http://localhost:9090
 
-# GRAFANA (NEW)
+# GRAFANA
 http://localhost:3000 (admin/admin)
 
 # POSTGRES CONNECT
@@ -1533,23 +1535,23 @@ docker network inspect batchetlpipeline_batch-etl-network
 # FULL RESET
 docker-compose down -v && docker-compose up -d
 
-# CHECK PROMETHEUS TARGETS (NEW)
+# CHECK PROMETHEUS TARGETS
 curl http://localhost:9090/api/v1/targets
 
-# CHECK GRAFANA HEALTH (NEW)
+# CHECK GRAFANA HEALTH
 curl http://localhost:3000/api/health
 
-# TERRAFORM PLAN (NEW)
+# TERRAFORM PLAN
 cd terraform && terraform plan -var-file="environments/dev/terraform.tfvars"
 
-# TERRAFORM APPLY (NEW)
+# TERRAFORM APPLY
 terraform apply -var-file="environments/dev/terraform.tfvars" -auto-approve
 
-# AWS S3 SYNC (NEW)
+# AWS S3 SYNC
 aws s3 sync ./dags/ s3://batchetl-airflow-bucket/dags/
 ```
 
 ---
 
-*Last Updated: 2026-08-21*
+*Last Updated: 2026-08-23*
 *Version: 4.0.0*
