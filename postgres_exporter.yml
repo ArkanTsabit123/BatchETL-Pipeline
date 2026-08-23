@@ -1,0 +1,2 @@
+# PostgreSQL Exporter Configuration
+# Using DATA_SOURCE_NAME environment variable for connection

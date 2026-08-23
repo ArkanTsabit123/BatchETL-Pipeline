@@ -6,13 +6,13 @@
 
 | Property | Value |
 |----------|-------|
-| Version | 3.0.0 |
-| Last Updated | 2026-08-17 |
-| Total Checks | 156 |
-| Passed | 156 |
+| Version | 4.0.0 |
+| Last Updated | 2026-08-21 |
+| Total Checks | 199 |
+| Passed | 157 |
 | Failed | 0 |
-| Pending | 0 |
-| Overall Progress | 100% |
+| Pending | 42 |
+| Overall Progress | 79% |
 
 ---
 
@@ -27,9 +27,11 @@
 7. [Phase 7: Screenshots Documentation](#phase-7-screenshots-documentation)
 8. [Phase 8: Documentation and Local Deployment](#phase-8-documentation-and-local-deployment)
 9. [Phase 9: Streamlit Cloud Deployment](#phase-9-streamlit-cloud-deployment)
-10. [Overall Summary](#overall-summary)
-11. [Quick Commands for Verification](#quick-commands-for-verification)
-12. [Legend](#legend)
+10. [Phase 10: Monitoring Verification (NEW)](#phase-10-monitoring-verification-grafana--prometheus)
+11. [Phase 11: AWS + Terraform Verification (NEW)](#phase-11-aws--terraform-verification)
+12. [Overall Summary](#overall-summary)
+13. [Quick Commands for Verification](#quick-commands-for-verification)
+14. [Legend](#legend)
 
 ---
 
@@ -47,7 +49,7 @@
 | 1.6 | .env file created | PASSED | Environment variables |
 | 1.7 | Docker Desktop installed | PASSED | docker --version |
 | 1.8 | Docker Compose installed | PASSED | docker-compose --version |
-| 1.9 | docker-compose.yml created | PASSED | 3 services (postgres, airflow, streamlit) |
+| 1.9 | docker-compose.yml created | PASSED | 6 services including monitoring |
 | 1.10 | Dataset downloaded | PASSED | data/raw/taxi_data.csv (2.96M rows) |
 | 1.11 | warehouse/init.sql created | PASSED | Database initialization script |
 | 1.12 | DAG file created | PASSED | dags/etl_pipeline.py |
@@ -79,8 +81,13 @@
 | 2.11 | Streamlit dashboard accessible | PASSED | http://localhost:8501 |
 | 2.12 | Airflow logs show no errors | PASSED | docker-compose logs airflow |
 | 2.13 | PostgreSQL logs show no errors | PASSED | docker-compose logs postgres |
+| **2.14** | **Prometheus container running** | **PENDING** | **docker-compose ps** |
+| **2.15** | **Grafana container running** | **PENDING** | **docker-compose ps** |
+| **2.16** | **PostgreSQL Exporter running** | **PENDING** | **docker-compose ps** |
+| **2.17** | **Prometheus UI accessible** | **PENDING** | **http://localhost:9090** |
+| **2.18** | **Grafana UI accessible** | **PENDING** | **http://localhost:3000** |
 
-**Phase 2 Summary:** 13/13 passed - 100% Complete
+**Phase 2 Summary:** 13/18 passed - 72% Complete
 
 ---
 
@@ -241,7 +248,20 @@
 | 7.21 | 18-live-demo-dashboard.png | Live dashboard running on streamlit.app | PASSED |
 | 7.22 | 19-live-demo-url.png | Browser showing live demo URL | PASSED |
 
-**Phase 7 Summary:** 22/22 passed - 100% Complete
+### 7.6 Level 5: Monitoring & Cloud (8 screenshots) - NEW
+
+| No | Filename | Description | Status |
+|----|----------|-------------|--------|
+| 7.23 | 20-grafana-pipeline.png | Grafana pipeline overview dashboard | PENDING |
+| 7.24 | 21-grafana-database.png | Grafana database performance dashboard | PENDING |
+| 7.25 | 22-grafana-data-quality.png | Grafana data quality dashboard | PENDING |
+| 7.26 | 23-prometheus-targets.png | Prometheus targets UI showing all scrapers healthy | PENDING |
+| 7.27 | 24-aws-rds-console.png | AWS Console showing RDS PostgreSQL instance | PENDING |
+| 7.28 | 25-aws-mwaa-console.png | AWS Console showing MWAA environment | PENDING |
+| 7.29 | 26-aws-s3-console.png | AWS Console showing S3 bucket data lake | PENDING |
+| 7.30 | 27-terraform-apply.png | Terraform apply output showing resource creation | PENDING |
+
+**Phase 7 Summary:** 22/30 passed - 73% Complete
 
 ---
 
@@ -328,20 +348,73 @@
 
 ---
 
+## Phase 10: Monitoring Verification (Grafana + Prometheus) - NEW
+
+**Objective:** Verify Prometheus, Grafana, and PostgreSQL Exporter are running and collecting metrics.
+
+| No | Task | Status | Notes |
+|----|------|--------|-------|
+| 10.1 | Prometheus container running | PENDING | docker-compose ps |
+| 10.2 | Grafana container running | PENDING | docker-compose ps |
+| 10.3 | PostgreSQL Exporter running | PENDING | docker-compose ps |
+| 10.4 | Prometheus UI accessible | PENDING | http://localhost:9090 |
+| 10.5 | Grafana UI accessible | PENDING | http://localhost:3000 |
+| 10.6 | Grafana login works | PENDING | admin/admin |
+| 10.7 | Prometheus targets healthy | PENDING | /targets endpoint |
+| 10.8 | Airflow metrics available | PENDING | /admin/metrics |
+| 10.9 | PostgreSQL metrics available | PENDING | /metrics endpoint |
+| 10.10 | Pipeline Dashboard loaded | PENDING | Grafana dashboard |
+| 10.11 | Database Dashboard loaded | PENDING | Grafana dashboard |
+| 10.12 | Data Quality Dashboard loaded | PENDING | Grafana dashboard |
+| 10.13 | Dashboards show data | PENDING | Metrics populated |
+| 10.14 | Alert rules configured | PENDING | Prometheus alerting |
+
+**Phase 10 Summary:** 0/14 passed - 0% Complete (PENDING)
+
+---
+
+## Phase 11: AWS + Terraform Verification - NEW
+
+**Objective:** Verify AWS infrastructure provisioning with Terraform.
+
+| No | Task | Status | Notes |
+|----|------|--------|-------|
+| 11.1 | Terraform installed | PENDING | terraform --version |
+| 11.2 | AWS CLI configured | PENDING | aws configure list |
+| 11.3 | Terraform init successful | PENDING | terraform init |
+| 11.4 | Terraform plan successful | PENDING | terraform plan |
+| 11.5 | RDS PostgreSQL created | PENDING | terraform apply |
+| 11.6 | S3 bucket created | PENDING | terraform apply |
+| 11.7 | MWAA environment created | PENDING | terraform apply |
+| 11.8 | VPC and networking created | PENDING | terraform apply |
+| 11.9 | RDS connection successful | PENDING | psql connection |
+| 11.10 | S3 bucket accessible | PENDING | aws s3 ls |
+| 11.11 | MWAA UI accessible | PENDING | MWAA webserver URL |
+| 11.12 | DAGs deployed to MWAA | PENDING | DAGs visible in UI |
+| 11.13 | Terraform outputs correct | PENDING | terraform output |
+| 11.14 | CloudWatch metrics available | PENDING | CloudWatch dashboard |
+| 11.15 | AWS cost tags applied | PENDING | Tags visible in console |
+
+**Phase 11 Summary:** 0/15 passed - 0% Complete (PLANNED)
+
+---
+
 ## Overall Summary
 
 | Phase | Total Checks | Passed | Failed | Pending | Progress | Status |
 |-------|--------------|--------|--------|---------|----------|--------|
 | Phase 1: Setup and Environment | 16 | 16 | 0 | 0 | 100% | COMPLETE |
-| Phase 2: Docker and Container Setup | 13 | 13 | 0 | 0 | 100% | COMPLETE |
+| Phase 2: Docker and Container Setup | 18 | 13 | 0 | 5 | 72% | IN PROGRESS |
 | Phase 3: Airflow DAG Creation | 12 | 12 | 0 | 0 | 100% | COMPLETE |
 | Phase 4: Pipeline Execution | 13 | 13 | 0 | 0 | 100% | COMPLETE |
 | Phase 5: PostgreSQL Data Verification | 14 | 14 | 0 | 0 | 100% | COMPLETE |
 | Phase 6: Dashboard Verification (Local) | 23 | 23 | 0 | 0 | 100% | COMPLETE |
-| Phase 7: Screenshots Documentation | 22 | 22 | 0 | 0 | 100% | COMPLETE |
+| Phase 7: Screenshots Documentation | 30 | 22 | 0 | 8 | 73% | IN PROGRESS |
 | Phase 8: Documentation and Local Deployment | 21 | 21 | 0 | 0 | 100% | COMPLETE |
 | Phase 9: Streamlit Cloud Deployment | 23 | 23 | 0 | 0 | 100% | COMPLETE |
-| **TOTAL** | **157** | **157** | **0** | **0** | **100%** | **COMPLETE** |
+| **Phase 10: Monitoring Verification** | **14** | **0** | **0** | **14** | **0%** | **PENDING** |
+| **Phase 11: AWS + Terraform Verification** | **15** | **0** | **0** | **15** | **0%** | **PLANNED** |
+| **TOTAL** | **199** | **157** | **0** | **42** | **79%** | **IN PROGRESS** |
 
 ---
 
@@ -385,6 +458,8 @@ python verify-phase-6.py
 python verify-phase-7.py
 python verify-phase-8.py
 python verify-phase-9.py
+python verify-phase-10.py
+python verify-phase-11.py
 ```
 
 ---
@@ -398,12 +473,12 @@ python verify-phase-9.py
 | FAILED | Task failed (needs attention) |
 | COMPLETE | Phase fully completed |
 | IN PROGRESS | Phase partially completed |
-| NOT STARTED | Phase not yet started |
+| PLANNED | Phase not yet started |
 
 ---
 
-*Last Updated: 2026-08-17*
-*Total Checks: 157*
+*Last Updated: 2026-08-21*
+*Total Checks: 199*
 *Passed: 157*
-*Pending: 0*
-*Overall Progress: 100%*
+*Pending: 42*
+*Overall Progress: 79%*

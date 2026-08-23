@@ -6,8 +6,8 @@
 
 | Property | Value |
 |----------|-------|
-| Version | 3.0.0 |
-| Last Updated | 2026-08-17 |
+| Version | 4.0.0 |
+| Last Updated | 2026-08-21 |
 | Purpose | Quick reference for development and deployment |
 
 ---
@@ -21,17 +21,20 @@
 5. [Python Package Management](#5-python-package-management)
 6. [Running the Pipeline](#6-running-the-pipeline)
 7. [Dashboard Configuration](#7-dashboard-configuration)
-8. [Project Structure Quick Reference](#8-project-structure-quick-reference)
-9. [Troubleshooting](#9-troubleshooting)
-10. [DAG Structure Template](#10-dag-structure-template)
-11. [One-Liner Commands](#11-one-liner-commands)
-12. [Important URLs](#12-important-urls)
-13. [Documentation Links](#13-documentation-links)
-14. [Quick Tips](#14-quick-tips)
-15. [File Paths Reference](#15-file-paths-reference)
-16. [Environment Variables](#16-environment-variables)
-17. [Verification Commands](#17-verification-commands)
-18. [Pipeline Execution Results](#18-pipeline-execution-results)
+8. [Monitoring Commands (NEW)](#8-monitoring-commands)
+9. [AWS Commands (NEW)](#9-aws-commands)
+10. [Terraform Commands (NEW)](#10-terraform-commands)
+11. [Project Structure Quick Reference](#11-project-structure-quick-reference)
+12. [Troubleshooting](#12-troubleshooting)
+13. [DAG Structure Template](#13-dag-structure-template)
+14. [One-Liner Commands](#14-one-liner-commands)
+15. [Important URLs](#15-important-urls)
+16. [Documentation Links](#16-documentation-links)
+17. [Quick Tips](#17-quick-tips)
+18. [File Paths Reference](#18-file-paths-reference)
+19. [Environment Variables](#19-environment-variables)
+20. [Verification Commands](#20-verification-commands)
+21. [Pipeline Execution Results](#21-pipeline-execution-results)
 
 ---
 
@@ -78,7 +81,7 @@ rm -rf venv
 ### Start and Stop Services
 
 ```bash
-# Start all services (PostgreSQL, Airflow, Streamlit)
+# Start all services (PostgreSQL, Airflow, Streamlit, Prometheus, Grafana, PostgreSQL Exporter)
 docker-compose up -d
 
 # Start with logs
@@ -88,6 +91,12 @@ docker-compose up
 docker-compose up -d postgres
 docker-compose up -d airflow
 docker-compose up -d streamlit
+docker-compose up -d prometheus
+docker-compose up -d grafana
+docker-compose up -d postgres-exporter
+
+# Start monitoring services only
+docker-compose up -d prometheus grafana postgres-exporter
 
 # Stop all services
 docker-compose down
@@ -100,6 +109,8 @@ docker-compose restart
 
 # Restart specific service
 docker-compose restart airflow
+docker-compose restart prometheus
+docker-compose restart grafana
 ```
 
 ### Container Status and Logs
@@ -115,6 +126,9 @@ docker-compose logs -f
 docker-compose logs postgres -f
 docker-compose logs airflow -f
 docker-compose logs streamlit -f
+docker-compose logs prometheus -f
+docker-compose logs grafana -f
+docker-compose logs postgres-exporter -f
 
 # View last 50 lines
 docker-compose logs --tail=50
@@ -154,6 +168,15 @@ http://localhost:8501
 # Streamlit Dashboard (Live Demo)
 https://batchetl.streamlit.app
 
+# Prometheus (NEW)
+http://localhost:9090
+
+# Grafana (NEW)
+http://localhost:3000
+
+# PostgreSQL Exporter (NEW)
+http://localhost:9187/metrics
+
 # PostgreSQL
 localhost:5432
 ```
@@ -166,12 +189,21 @@ Airflow UI:
   Password: admin
   URL: http://localhost:8080
 
+Grafana (NEW):
+  Username: admin
+  Password: admin
+  URL: http://localhost:3000
+
 PostgreSQL:
   Username: admin
   Password: admin
   Database: warehouse
   Host: localhost
   Port: 5432
+
+Prometheus (NEW):
+  No authentication required
+  URL: http://localhost:9090
 ```
 
 ### Port Mapping Summary
@@ -181,6 +213,9 @@ PostgreSQL:
 | Airflow UI | 8080 | 8080 | batch-etl-airflow |
 | PostgreSQL | 5432 | 5432 | batch-etl-postgres |
 | Streamlit | 8501 | 8501 | batch-etl-streamlit |
+| **Prometheus (NEW)** | **9090** | **9090** | **batch-etl-prometheus** |
+| **Grafana (NEW)** | **3000** | **3000** | **batch-etl-grafana** |
+| **PostgreSQL Exporter (NEW)** | **9187** | **9187** | **batch-etl-postgres-exporter** |
 
 ---
 
@@ -336,6 +371,10 @@ ORDER BY revenue DESC;
 | Plotly | 5.18.0 |
 | Python | 3.10+ |
 | psycopg2-binary | 2.9.9 |
+| **Grafana (NEW)** | **10.2.0** |
+| **Prometheus (NEW)** | **2.47.0** |
+| **Terraform (NEW)** | **1.5.0** |
+| **AWS CLI (NEW)** | **Latest** |
 
 ### Install Dependencies
 
@@ -513,7 +552,421 @@ streamlit run dashboard/app.py
 
 ---
 
-## 8. Project Structure Quick Reference
+## 8. Monitoring Commands (NEW)
+
+### Prometheus
+
+```bash
+# Check Prometheus targets
+curl http://localhost:9090/api/v1/targets
+
+# Check Prometheus metrics
+curl http://localhost:9090/api/v1/query?query=up
+
+# Query specific metrics
+curl 'http://localhost:9090/api/v1/query?query=airflow_dag_run_duration_seconds'
+
+# Query all metrics
+curl 'http://localhost:9090/api/v1/query?query={__name__=~".+"}'
+
+# Reload Prometheus configuration
+curl -X POST http://localhost:9090/-/reload
+
+# Check Prometheus health
+curl http://localhost:9090/-/healthy
+
+# Check Prometheus rules
+curl http://localhost:9090/api/v1/rules
+```
+
+### PostgreSQL Exporter
+
+```bash
+# Check PostgreSQL Exporter metrics
+curl http://localhost:9187/metrics
+
+# Check PostgreSQL Exporter health
+curl http://localhost:9187/health
+
+# Check specific PostgreSQL metrics
+curl http://localhost:9187/metrics | grep pg_stat_database
+```
+
+### Grafana
+
+```bash
+# Check Grafana health
+curl http://localhost:3000/api/health
+
+# Check Grafana version
+curl http://localhost:3000/api/frontend/settings
+
+# Login to Grafana (for API calls)
+curl -X POST http://localhost:3000/login \
+  -H "Content-Type: application/json" \
+  -d '{"user":"admin","password":"admin"}'
+
+# List Grafana datasources
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/datasources
+
+# Reload Grafana dashboards
+curl -X POST http://localhost:3000/api/admin/provisioning/dashboards/reload
+```
+
+### Airflow Metrics
+
+```bash
+# Check Airflow metrics
+curl http://localhost:8080/admin/metrics
+
+# Check specific Airflow metrics
+curl http://localhost:8080/admin/metrics | grep airflow_dag
+
+# Check Airflow health
+curl http://localhost:8080/health
+```
+
+### Alerting
+
+```bash
+# Check Prometheus alerts
+curl http://localhost:9090/api/v1/alerts
+
+# Check Alertmanager status (if configured)
+curl http://localhost:9093/api/v1/alerts
+```
+
+---
+
+## 9. AWS Commands (NEW)
+
+### AWS CLI Configuration
+
+```bash
+# Configure AWS CLI
+aws configure
+# AWS Access Key ID: AKIAXXXXXXXX
+# AWS Secret Access Key: xxxxxxxxxxxxxxxx
+# Default region: us-east-1
+# Default output format: json
+
+# Check AWS configuration
+aws configure list
+
+# Check AWS identity
+aws sts get-caller-identity
+```
+
+### S3 Commands
+
+```bash
+# Create S3 bucket
+aws s3 mb s3://batchetl-data-lake --region us-east-1
+
+# Enable versioning
+aws s3api put-bucket-versioning \
+  --bucket batchetl-data-lake \
+  --versioning-configuration Status=Enabled
+
+# List buckets
+aws s3 ls
+
+# List bucket contents
+aws s3 ls s3://batchetl-data-lake/
+
+# Upload files
+aws s3 sync ./dags/ s3://batchetl-airflow-bucket/dags/
+aws s3 cp ./requirements.txt s3://batchetl-airflow-bucket/requirements.txt
+
+# Download files
+aws s3 cp s3://batchetl-data-lake/data/taxi_data.csv ./
+
+# Delete bucket contents
+aws s3 rm s3://batchetl-data-lake --recursive
+
+# Delete bucket
+aws s3 rb s3://batchetl-data-lake --force
+```
+
+### RDS Commands
+
+```bash
+# Create RDS instance
+aws rds create-db-instance \
+  --db-instance-identifier batchetl-db \
+  --db-instance-class db.t4g.medium \
+  --engine postgres \
+  --engine-version 15.3 \
+  --master-username admin \
+  --master-user-password SecurePassword123! \
+  --allocated-storage 100 \
+  --storage-type gp3 \
+  --multi-az \
+  --backup-retention-period 7
+
+# List RDS instances
+aws rds describe-db-instances
+
+# Describe specific RDS instance
+aws rds describe-db-instances --db-instance-identifier batchetl-db
+
+# Get RDS endpoint
+aws rds describe-db-instances \
+  --db-instance-identifier batchetl-db \
+  --query 'DBInstances[0].Endpoint.Address'
+
+# Delete RDS instance
+aws rds delete-db-instance \
+  --db-instance-identifier batchetl-db \
+  --skip-final-snapshot
+
+# Create RDS snapshot
+aws rds create-db-snapshot \
+  --db-instance-identifier batchetl-db \
+  --db-snapshot-identifier batchetl-db-snapshot-$(date +%Y%m%d)
+```
+
+### MWAA Commands
+
+```bash
+# Create MWAA environment
+aws mwaa create-environment \
+  --name batchetl-airflow \
+  --airflow-version 2.7.3 \
+  --environment-class mwaa.medium \
+  --execution-role-arn arn:aws:iam::123456789012:role/mwaa-execution-role \
+  --source-bucket-arn arn:aws:s3:::batchetl-airflow-bucket
+
+# List MWAA environments
+aws mwaa list-environments
+
+# Describe MWAA environment
+aws mwaa get-environment --name batchetl-airflow
+
+# Get MWAA webserver URL
+aws mwaa get-environment \
+  --name batchetl-airflow \
+  --query 'Environment.WebserverUrl'
+
+# Check MWAA status
+aws mwaa get-environment \
+  --name batchetl-airflow \
+  --query 'Environment.Status'
+
+# Update MWAA environment
+aws mwaa update-environment \
+  --name batchetl-airflow \
+  --source-bucket-arn arn:aws:s3:::batchetl-airflow-bucket
+
+# Delete MWAA environment
+aws mwaa delete-environment --name batchetl-airflow
+```
+
+### CloudWatch Commands
+
+```bash
+# List CloudWatch log groups
+aws logs describe-log-groups --log-group-name-prefix /aws/mwaa
+
+# Get CloudWatch logs
+aws logs get-log-events \
+  --log-group-name /aws/mwaa/batchetl-airflow \
+  --log-stream-name scheduler
+
+# Create CloudWatch alarm
+aws cloudwatch put-metric-alarm \
+  --alarm-name batchetl-rds-cpu-high \
+  --comparison-operator GreaterThanThreshold \
+  --evaluation-periods 2 \
+  --metric-name CPUUtilization \
+  --namespace AWS/RDS \
+  --period 300 \
+  --statistic Average \
+  --threshold 70 \
+  --alarm-actions arn:aws:sns:us-east-1:123456789012:alerts
+```
+
+### IAM Commands
+
+```bash
+# Create IAM role for MWAA
+aws iam create-role \
+  --role-name mwaa-execution-role \
+  --assume-role-policy-document file://trust-policy.json
+
+# Attach policy to role
+aws iam attach-role-policy \
+  --role-name mwaa-execution-role \
+  --policy-arn arn:aws:iam::aws:policy/AmazonMWAAExecutionRolePolicy
+
+# List IAM roles
+aws iam list-roles
+
+# Get IAM role details
+aws iam get-role --role-name mwaa-execution-role
+```
+
+---
+
+## 10. Terraform Commands (NEW)
+
+### Initialization
+
+```bash
+# Initialize Terraform
+cd terraform
+terraform init
+
+# Initialize with backend configuration
+terraform init -backend-config="environments/dev/backend.tfvars"
+
+# Get modules
+terraform get
+
+# Validate configuration
+terraform validate
+```
+
+### Planning
+
+```bash
+# Plan infrastructure changes (dev)
+terraform plan -var-file="environments/dev/terraform.tfvars"
+
+# Plan with detailed output
+terraform plan -var-file="environments/dev/terraform.tfvars" -out=tfplan
+
+# Plan with refresh
+terraform plan -var-file="environments/dev/terraform.tfvars" -refresh=true
+
+# Plan for specific module
+terraform plan -var-file="environments/dev/terraform.tfvars" -target=module.rds
+```
+
+### Applying
+
+```bash
+# Apply infrastructure (dev)
+terraform apply -var-file="environments/dev/terraform.tfvars" -auto-approve
+
+# Apply with plan file
+terraform apply tfplan
+
+# Apply specific resource
+terraform apply -var-file="environments/dev/terraform.tfvars" -target=module.s3
+
+# Apply with parallel execution
+terraform apply -var-file="environments/dev/terraform.tfvars" -parallelism=10
+```
+
+### Destroying
+
+```bash
+# Destroy infrastructure (dev)
+terraform destroy -var-file="environments/dev/terraform.tfvars" -auto-approve
+
+# Destroy specific resource
+terraform destroy -var-file="environments/dev/terraform.tfvars" -target=module.rds
+
+# Destroy with force
+terraform destroy -var-file="environments/dev/terraform.tfvars" -force
+```
+
+### State Management
+
+```bash
+# List resources in state
+terraform state list
+
+# Show resource details
+terraform state show module.rds.aws_db_instance.main
+
+# Move resource in state
+terraform state mv module.rds.aws_db_instance.main module.rds.aws_db_instance.prod
+
+# Remove resource from state
+terraform state rm module.rds.aws_db_instance.main
+
+# Pull state
+terraform state pull > state.json
+
+# Push state
+terraform state push state.json
+```
+
+### Outputs
+
+```bash
+# List outputs
+terraform output
+
+# Get specific output
+terraform output rds_endpoint
+
+# Get sensitive output
+terraform output -json db_connection_string
+
+# Get all outputs in JSON
+terraform output -json
+```
+
+### Workspace Management
+
+```bash
+# List workspaces
+terraform workspace list
+
+# Create workspace
+terraform workspace new dev
+
+# Switch workspace
+terraform workspace select staging
+
+# Delete workspace
+terraform workspace delete dev
+```
+
+### Formatting and Linting
+
+```bash
+# Format Terraform files
+terraform fmt -recursive
+
+# Check formatting
+terraform fmt -check
+
+# Validate configuration
+terraform validate
+
+# Lint with tflint (if installed)
+tflint
+```
+
+### Other Useful Commands
+
+```bash
+# Get Terraform version
+terraform version
+
+# Show resource graph
+terraform graph | dot -Tpng > graph.png
+
+# Show providers
+terraform providers
+
+# Refresh state
+terraform refresh -var-file="environments/dev/terraform.tfvars"
+
+# Import existing resource
+terraform import module.rds.aws_db_instance.main <db-instance-id>
+
+# Generate provider documentation
+terraform providers schema -json > schema.json
+```
+
+---
+
+## 11. Project Structure Quick Reference
 
 | Folder | Content |
 |--------|---------|
@@ -524,6 +977,8 @@ streamlit run dashboard/app.py
 | data/staging/ | Intermediate files (taxi_raw.csv, taxi_clean.csv) |
 | warehouse/ | Database initialization (init.sql) |
 | dashboard/ | Streamlit app (app.py) + Dockerfile |
+| **monitoring/ (NEW)** | **Prometheus, Grafana, alerting configuration** |
+| **terraform/ (NEW)** | **Terraform modules for AWS infrastructure** |
 | screenshots/ | Documentation screenshots |
 | docs/ | Documentation files (blueprint, cheatsheet, checklist) |
 | docs/diagrams/ | Diagram source files (PDF, XML, DBML, drawio, MWB) |
@@ -531,7 +986,7 @@ streamlit run dashboard/app.py
 
 ---
 
-## 9. Troubleshooting
+## 12. Troubleshooting
 
 ### Docker Issues
 
@@ -569,6 +1024,27 @@ streamlit run dashboard/app.py
 | Duplicate key error | Check primary key constraints, clear data |
 | Encoding issues | Set proper encoding in connection string |
 
+### Monitoring Issues (NEW)
+
+| Issue | Solution |
+|-------|----------|
+| Prometheus no targets | Check targets endpoint, verify service health |
+| Grafana no data | Check datasource config, verify Prometheus connection |
+| PostgreSQL Exporter fails | Check DATA_SOURCE_NAME environment variable |
+| Dashboards not loading | Check provisioning directory, restart Grafana |
+| Alert rules not firing | Check Prometheus evaluation interval, verify expression |
+| Metrics not showing | Check scrape interval, verify metrics path |
+
+### AWS + Terraform Issues (NEW)
+
+| Issue | Solution |
+|-------|----------|
+| Terraform apply fails | Check AWS credentials, IAM permissions |
+| RDS connection timeout | Check security groups, subnet configuration |
+| MWAA environment not ready | Wait 20-30 minutes for provisioning |
+| S3 access denied | Check bucket policies, IAM role permissions |
+| CloudWatch no logs | Check log group configuration, wait for propagation |
+
 ### Common Errors and Solutions
 
 | Error | Solution |
@@ -595,6 +1071,8 @@ docker-compose logs --tail=50
 
 # 3. Check specific service logs
 docker-compose logs airflow --tail=50
+docker-compose logs prometheus --tail=50
+docker-compose logs grafana --tail=50
 
 # 4. Restart Airflow (if DAG doesn't appear)
 docker-compose restart airflow
@@ -602,22 +1080,25 @@ docker-compose restart airflow
 # 5. Restart PostgreSQL (if connection issue)
 docker-compose restart postgres
 
-# 6. Restart all services
+# 6. Restart monitoring services (if no metrics)
+docker-compose restart prometheus grafana postgres-exporter
+
+# 7. Restart all services
 docker-compose restart
 
-# 7. Full reset (if all else fails)
+# 8. Full reset (if all else fails)
 docker-compose down -v && docker-compose up -d
 
-# 8. Check disk space
+# 9. Check disk space
 df -h
 
-# 9. Check container resource usage
+# 10. Check container resource usage
 docker stats
 ```
 
 ---
 
-## 10. DAG Structure Template
+## 13. DAG Structure Template
 
 ```python
 from airflow import DAG
@@ -680,7 +1161,7 @@ with DAG(
 
 ---
 
-## 11. One-Liner Commands
+## 14. One-Liner Commands
 
 ### Setup
 
@@ -705,13 +1186,13 @@ docker-compose down -v && rm -rf venv && python -m venv venv
 
 ```bash
 # Windows PowerShell
-venv\Scripts\Activate.ps1; docker-compose up -d; start http://localhost:8080; start http://localhost:8501
+venv\Scripts\Activate.ps1; docker-compose up -d; start http://localhost:8080; start http://localhost:8501; start http://localhost:9090; start http://localhost:3000
 
 # Windows CMD
-venv\Scripts\activate.bat && docker-compose up -d && start http://localhost:8080 && start http://localhost:8501
+venv\Scripts\activate.bat && docker-compose up -d && start http://localhost:8080 && start http://localhost:8501 && start http://localhost:9090 && start http://localhost:3000
 
 # Mac/Linux
-source venv/bin/activate && docker-compose up -d && open http://localhost:8080 && open http://localhost:8501
+source venv/bin/activate && docker-compose up -d && open http://localhost:8080 && open http://localhost:8501 && open http://localhost:9090 && open http://localhost:3000
 ```
 
 ### Data Verification
@@ -725,6 +1206,22 @@ docker exec -it batch-etl-airflow airflow dags list-runs --dag-id etl_pipeline
 
 # Check latest DAG run
 docker exec -it batch-etl-airflow airflow dags list-runs --dag-id etl_pipeline --limit 1
+```
+
+### Monitoring Verification (NEW)
+
+```bash
+# Check Prometheus targets
+curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, health: .health}'
+
+# Check all metrics are available
+curl -s http://localhost:9090/api/v1/query?query=up | jq '.data.result[] | {job: .metric.job, value: .value[1]}'
+
+# Check Grafana health
+curl -s http://localhost:3000/api/health | jq '.'
+
+# Check PostgreSQL Exporter
+curl -s http://localhost:9187/metrics | head -20
 ```
 
 ### Cleanup
@@ -742,19 +1239,23 @@ rm -rf venv __pycache__ .pytest_cache
 
 ---
 
-## 12. Important URLs
-
-| Service | URL |
+## 15. Important URLs| Service | URL |
 |---------|-----|
 | Airflow UI | http://localhost:8080 |
 | Streamlit Dashboard (Local) | http://localhost:8501 |
 | Streamlit Dashboard (Live Demo) | https://batchetl.streamlit.app |
+| **Prometheus (NEW)** | **http://localhost:9090** |
+| **Grafana (NEW)** | **http://localhost:3000** |
+| **PostgreSQL Exporter (NEW)** | **http://localhost:9187/metrics** |
+| **AWS RDS Console (NEW)** | **https://console.aws.amazon.com/rds** |
+| **AWS MWAA Console (NEW)** | **https://console.aws.amazon.com/mwaa** |
+| **AWS S3 Console (NEW)** | **https://console.aws.amazon.com/s3** |
 | PostgreSQL | localhost:5432 |
 | NYC Taxi Data | https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page |
 
 ---
 
-## 13. Documentation Links
+## 16. Documentation Links
 
 | Resource | URL |
 |----------|-----|
@@ -765,10 +1266,15 @@ rm -rf venv __pycache__ .pytest_cache
 | Pandas Docs | https://pandas.pydata.org/docs/ |
 | Docker Docs | https://docs.docker.com/ |
 | SQLAlchemy Docs | https://docs.sqlalchemy.org/ |
+| **Prometheus Docs (NEW)** | **https://prometheus.io/docs/** |
+| **Grafana Docs (NEW)** | **https://grafana.com/docs/** |
+| **Terraform Docs (NEW)** | **https://developer.hashicorp.com/terraform/docs** |
+| **AWS RDS Docs (NEW)** | **https://docs.aws.amazon.com/rds/** |
+| **AWS MWAA Docs (NEW)** | **https://docs.aws.amazon.com/mwaa/** |
 
 ---
 
-## 14. Quick Tips
+## 17. Quick Tips
 
 1. Always use Docker on Windows for Airflow
 2. Activate venv before working with Python locally
@@ -776,7 +1282,7 @@ rm -rf venv __pycache__ .pytest_cache
 4. Use docker-compose logs -f to monitor in real-time
 5. Wait for database initialization (10-15 seconds) before triggering DAG
 6. Restart Airflow after adding new DAGs
-7. Check ports if services won't start (8080, 5432, 8501)
+7. Check ports if services won't start (8080, 5432, 8501, 9090, 3000, 9187)
 8. Trigger DAG manually first, then schedule will work
 9. Use verification scripts to check each phase
 10. Screenshots should be 300+ DPI for documentation
@@ -785,10 +1291,15 @@ rm -rf venv __pycache__ .pytest_cache
 13. Use docker exec for Airflow commands to avoid local installation
 14. Clear task instances when retrying failed tasks
 15. Monitor resource usage with docker stats
+16. **Use Grafana dashboards for real-time monitoring (NEW)**
+17. **Use Prometheus for metrics collection and alerting (NEW)**
+18. **Use Terraform for infrastructure as code (NEW)**
+19. **Always use AWS Secrets Manager for credentials in production (NEW)**
+20. **Enable CloudTrail for audit logging in AWS (NEW)**
 
 ---
 
-## 15. File Paths Reference
+## 18. File Paths Reference
 
 | File | Path |
 |------|------|
@@ -807,6 +1318,20 @@ rm -rf venv __pycache__ .pytest_cache
 | Docker Compose | docker-compose.yml |
 | Requirements | requirements.txt |
 | Environment | .env |
+| **Prometheus Config (NEW)** | **monitoring/prometheus.yml** |
+| **Alert Rules (NEW)** | **monitoring/alerts.yml** |
+| **Grafana Dashboards (NEW)** | **monitoring/grafana/dashboards/** |
+| **Grafana Datasource (NEW)** | **monitoring/grafana/datasources/** |
+| **ETL Exporter (NEW)** | **monitoring/exporters/etl_metrics.py** |
+| **Terraform Root (NEW)** | **terraform/main.tf** |
+| **Terraform Variables (NEW)** | **terraform/variables.tf** |
+| **Terraform Outputs (NEW)** | **terraform/outputs.tf** |
+| **Terraform RDS Module (NEW)** | **terraform/modules/rds/** |
+| **Terraform MWAA Module (NEW)** | **terraform/modules/mwaa/** |
+| **Terraform S3 Module (NEW)** | **terraform/modules/s3/** |
+| **Terraform Networking Module (NEW)** | **terraform/modules/networking/** |
+| **Terraform Monitoring Module (NEW)** | **terraform/modules/monitoring/** |
+| **Terraform Dev Config (NEW)** | **terraform/environments/dev/terraform.tfvars** |
 | Blueprint | docs/blueprint.md |
 | Cheatsheet | docs/cheatsheets.md |
 | Verification Checklist | docs/verification-checklist.md |
@@ -820,7 +1345,7 @@ rm -rf venv __pycache__ .pytest_cache
 
 ---
 
-## 16. Environment Variables
+## 19. Environment Variables
 
 ### Required Environment Variables
 
@@ -837,6 +1362,17 @@ AIRFLOW__CORE__LOAD_EXAMPLES=False
 AIRFLOW__WEBSERVER__SECRET_KEY=your-secret-key-here
 AIRFLOW_CONN_POSTGRES=postgresql://admin:admin@postgres:5432/warehouse
 PYTHONPATH=/opt/airflow
+
+# Monitoring Environment Variables (NEW)
+GF_SECURITY_ADMIN_USER=admin
+GF_SECURITY_ADMIN_PASSWORD=admin
+GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel
+DATA_SOURCE_NAME=postgresql://admin:admin@postgres:5432/warehouse?sslmode=disable
+
+# AWS Environment Variables (NEW)
+AWS_ACCESS_KEY_ID=AKIAXXXXXXXX
+AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxx
+AWS_DEFAULT_REGION=us-east-1
 ```
 
 ### Set Environment Variables
@@ -845,19 +1381,22 @@ PYTHONPATH=/opt/airflow
 # Windows PowerShell
 $env:AIRFLOW_UID="50000"
 $env:POSTGRES_PASSWORD="admin"
+$env:GF_SECURITY_ADMIN_PASSWORD="admin"
 
 # Windows CMD
 set AIRFLOW_UID=50000
 set POSTGRES_PASSWORD=admin
+set GF_SECURITY_ADMIN_PASSWORD=admin
 
 # Mac/Linux
 export AIRFLOW_UID=50000
 export POSTGRES_PASSWORD=admin
+export GF_SECURITY_ADMIN_PASSWORD=admin
 ```
 
 ---
 
-## 17. Verification Commands
+## 20. Verification Commands
 
 ### Run All Verifications
 
@@ -877,6 +1416,8 @@ python verify-phase-6.py
 python verify-phase-7.py
 python verify-phase-8.py
 python verify-phase-9.py
+python verify-phase-10.py
+python verify-phase-11.py
 ```
 
 ### Troubleshooting Modules
@@ -888,11 +1429,13 @@ python troubleshoot_airflow.py
 python troubleshoot_postgres.py
 python troubleshoot_dashboard.py
 python troubleshoot_network.py
+python troubleshoot_monitoring.py
+python troubleshoot_aws.py
 ```
 
 ---
 
-## 18. Pipeline Execution Results
+## 21. Pipeline Execution Results
 
 ### Actual Execution Results
 
@@ -919,11 +1462,19 @@ python troubleshoot_network.py
 # START SERVICES
 docker-compose up -d
 
+# START MONITORING ONLY (NEW)
+docker-compose up -d prometheus grafana postgres-exporter
+
 # STATUS
 docker-compose ps
 
 # LOGS
 docker-compose logs -f
+
+# LOGS - MONITORING (NEW)
+docker-compose logs prometheus -f
+docker-compose logs grafana -f
+docker-compose logs postgres-exporter -f
 
 # STOP SERVICES
 docker-compose down
@@ -939,6 +1490,12 @@ http://localhost:8501
 
 # DASHBOARD (LIVE DEMO)
 https://batchetl.streamlit.app
+
+# PROMETHEUS (NEW)
+http://localhost:9090
+
+# GRAFANA (NEW)
+http://localhost:3000 (admin/admin)
 
 # POSTGRES CONNECT
 docker exec -it batch-etl-postgres psql -U admin -d warehouse
@@ -975,9 +1532,24 @@ docker network inspect batchetlpipeline_batch-etl-network
 
 # FULL RESET
 docker-compose down -v && docker-compose up -d
+
+# CHECK PROMETHEUS TARGETS (NEW)
+curl http://localhost:9090/api/v1/targets
+
+# CHECK GRAFANA HEALTH (NEW)
+curl http://localhost:3000/api/health
+
+# TERRAFORM PLAN (NEW)
+cd terraform && terraform plan -var-file="environments/dev/terraform.tfvars"
+
+# TERRAFORM APPLY (NEW)
+terraform apply -var-file="environments/dev/terraform.tfvars" -auto-approve
+
+# AWS S3 SYNC (NEW)
+aws s3 sync ./dags/ s3://batchetl-airflow-bucket/dags/
 ```
 
 ---
 
-*Last Updated: 2026-08-17*
-*Version: 3.0.0*
+*Last Updated: 2026-08-21*
+*Version: 4.0.0*

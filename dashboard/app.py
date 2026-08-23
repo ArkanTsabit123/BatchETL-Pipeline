@@ -1,5 +1,4 @@
 # dashboard/app.py
-
 """
 NYC Taxi Analytics Dashboard.
 
@@ -9,35 +8,52 @@ Features KPI cards, interactive charts, and filters.
 
 import calendar
 import os
-from sqlalchemy import create_engine
+from typing import Dict, Optional
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from sqlalchemy import create_engine, Engine
 
 
 # Constants
-DATABASE_URL = "postgresql+psycopg2://admin:admin@postgres:5432/warehouse"
-PAGE_TITLE = "NYC Taxi Analytics Dashboard"
-LAYOUT = "wide"
-CACHE_TTL = 300
-SAMPLE_SIZE = 1000
-DATA_LIMIT = int(os.getenv("DATA_LIMIT", 100000))
-FARE_BINS = 50
+DATABASE_URL: str = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg2://admin:admin@postgres:5432/warehouse"
+)
+PAGE_TITLE: str = "NYC Taxi Analytics Dashboard"
+PAGE_ICON: str = ""
+LAYOUT: str = "wide"
+CACHE_TTL: int = 300
+SAMPLE_SIZE: int = 1000
+DATA_LIMIT: int = int(os.getenv("DATA_LIMIT", 100000))
+FARE_BINS: int = 50
+DAY_ORDER: list = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+# Payment type mapping
+PAYMENT_TYPE_MAP: Dict[int, str] = {
+    1: "Credit Card",
+    2: "Cash",
+    3: "No Charge",
+    4: "Dispute",
+    5: "Unknown",
+    6: "Void"
+}
 
 
 def configure_page() -> None:
-    """Set Streamlit page configuration."""
+    """Configure Streamlit page settings."""
     st.set_page_config(
         page_title=PAGE_TITLE,
-        page_icon="🚕",
+        page_icon=PAGE_ICON,
         layout=LAYOUT,
     )
 
 
 @st.cache_resource
-def get_database_engine():
+def get_database_engine() -> Engine:
     """
-    Create and return SQLAlchemy database engine.
+    Create and cache SQLAlchemy database engine.
 
     Returns:
         Engine: SQLAlchemy engine instance.
@@ -58,21 +74,12 @@ def load_trip_data() -> pd.DataFrame:
     """
     try:
         engine = get_database_engine()
-
-        if DATA_LIMIT:
-            query = f"""
-                SELECT *
-                FROM fact_trips
-                ORDER BY trip_id
-                LIMIT {DATA_LIMIT}
-            """
-        else:
-            query = """
-                SELECT *
-                FROM fact_trips
-                ORDER BY trip_id
-            """
-
+        query = f"""
+            SELECT *
+            FROM fact_trips
+            ORDER BY trip_id
+            LIMIT {DATA_LIMIT}
+        """
         return pd.read_sql(query, engine)
     except Exception as e:
         raise Exception(f"Database connection failed: {str(e)}")
@@ -84,7 +91,7 @@ def render_header() -> None:
     st.markdown("### Real-time analytics from NYC Taxi Trip Data")
 
 
-def get_filters(dataframe: pd.DataFrame) -> dict:
+def get_filters(dataframe: pd.DataFrame) -> Dict:
     """
     Create sidebar filters.
 
@@ -129,7 +136,7 @@ def get_filters(dataframe: pd.DataFrame) -> dict:
         "Payment Type",
         options=payment_options,
         index=0,
-        format_func=lambda x: "All" if x == "All" else f"Type {x}",
+        format_func=lambda x: "All" if x == "All" else PAYMENT_TYPE_MAP.get(x, f"Type {x}"),
     )
 
     vendor_ids = sorted(dataframe["vendor_id"].dropna().unique())
@@ -150,7 +157,7 @@ def get_filters(dataframe: pd.DataFrame) -> dict:
     }
 
 
-def apply_filters(dataframe: pd.DataFrame, filters: dict) -> pd.DataFrame:
+def apply_filters(dataframe: pd.DataFrame, filters: Dict) -> pd.DataFrame:
     """
     Apply filters to the dataset.
 
@@ -197,27 +204,38 @@ def render_kpi_cards(dataframe: pd.DataFrame) -> None:
         st.metric("Total Trips", f"{len(dataframe):,}")
 
     with col2:
-        st.metric("Average Fare", f"${dataframe['fare_amount'].mean():.2f}")
+        avg_fare = dataframe["fare_amount"].mean()
+        st.metric("Average Fare", f"${avg_fare:.2f}")
 
     with col3:
-        st.metric("Avg Distance", f"{dataframe['trip_distance'].mean():.2f} miles")
+        avg_distance = dataframe["trip_distance"].mean()
+        st.metric("Avg Distance", f"{avg_distance:.2f} miles")
 
     with col4:
-        st.metric("Avg Passengers", f"{dataframe['passenger_count'].mean():.1f}")
+        avg_passengers = dataframe["passenger_count"].mean()
+        st.metric("Avg Passengers", f"{avg_passengers:.1f}")
 
     with col5:
-        st.metric("Total Revenue", f"${dataframe['total_amount'].sum():,.2f}")
+        total_revenue = dataframe["total_amount"].sum()
+        st.metric("Total Revenue", f"${total_revenue:,.2f}")
 
 
 def render_revenue_by_day(dataframe: pd.DataFrame) -> None:
     """
-    Display revenue by day bar chart.
+    Display revenue by day bar chart with tooltips.
 
     Args:
         dataframe: Filtered data.
     """
     st.subheader("Revenue by Day")
-    revenue_data = dataframe.groupby("pickup_day")["fare_amount"].sum().reset_index()
+    revenue_data = dataframe.groupby("pickup_day", as_index=False)["fare_amount"].sum()
+    revenue_data["pickup_day"] = pd.Categorical(
+        revenue_data["pickup_day"],
+        categories=DAY_ORDER,
+        ordered=True
+    )
+    revenue_data = revenue_data.sort_values("pickup_day")
+
     fig = px.bar(
         revenue_data,
         x="pickup_day",
@@ -227,18 +245,29 @@ def render_revenue_by_day(dataframe: pd.DataFrame) -> None:
         color_continuous_scale="Viridis",
         labels={"pickup_day": "Day", "fare_amount": "Revenue ($)"},
     )
+
+    fig.update_traces(
+        hovertemplate="<b>Day:</b> %{x}<br><b>Revenue:</b> $%{y:,.2f}<extra></extra>"
+    )
+    fig.update_layout(
+        hovermode="x unified",
+        xaxis_title="Day of Week",
+        yaxis_title="Revenue ($)"
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 
 def render_trips_by_hour(dataframe: pd.DataFrame) -> None:
     """
-    Display trips per hour bar chart.
+    Display trips per hour bar chart with tooltips.
 
     Args:
         dataframe: Filtered data.
     """
     st.subheader("Trips per Hour")
-    trips_data = dataframe.groupby("pickup_hour").size().reset_index(name="count")
+    trips_data = dataframe.groupby("pickup_hour", as_index=False).size().rename(columns={"size": "count"})
+
     fig = px.bar(
         trips_data,
         x="pickup_hour",
@@ -248,12 +277,22 @@ def render_trips_by_hour(dataframe: pd.DataFrame) -> None:
         color_continuous_scale="Plasma",
         labels={"pickup_hour": "Hour", "count": "Number of Trips"},
     )
+
+    fig.update_traces(
+        hovertemplate="<b>Hour:</b> %{x}:00<br><b>Trips:</b> %{y:,}<extra></extra>"
+    )
+    fig.update_layout(
+        hovermode="x unified",
+        xaxis_title="Hour of Day (24-hour)",
+        yaxis_title="Number of Trips"
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 
 def render_fare_distribution(dataframe: pd.DataFrame) -> None:
     """
-    Display fare distribution histogram.
+    Display fare distribution histogram with tooltips.
 
     Args:
         dataframe: Filtered data.
@@ -267,18 +306,29 @@ def render_fare_distribution(dataframe: pd.DataFrame) -> None:
         color_discrete_sequence=["#636EFA"],
         labels={"fare_amount": "Fare ($)"},
     )
+
+    fig.update_traces(
+        hovertemplate="<b>Fare:</b> $%{x:.2f}<br><b>Count:</b> %{y:,}<extra></extra>"
+    )
+    fig.update_layout(
+        hovermode="x unified",
+        xaxis_title="Fare Amount ($)",
+        yaxis_title="Number of Trips"
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 
 def render_distance_vs_fare(dataframe: pd.DataFrame) -> None:
     """
-    Display distance vs fare scatter plot.
+    Display distance vs fare scatter plot with tooltips.
 
     Args:
         dataframe: Filtered data.
     """
     st.subheader("Distance vs Fare")
     sample_data = dataframe.sample(min(SAMPLE_SIZE, len(dataframe)))
+
     fig = px.scatter(
         sample_data,
         x="trip_distance",
@@ -288,13 +338,27 @@ def render_distance_vs_fare(dataframe: pd.DataFrame) -> None:
         color_continuous_scale="Viridis",
         labels={"trip_distance": "Distance (miles)", "fare_amount": "Fare ($)"},
     )
+
+    fig.update_traces(
+        hovertemplate=(
+            "<b>Distance:</b> %{x:.2f} miles<br>"
+            "<b>Fare:</b> $%{y:.2f}<br>"
+            "<b>Passengers:</b> %{marker.color}<extra></extra>"
+        )
+    )
+    fig.update_layout(
+        hovermode="closest",
+        xaxis_title="Trip Distance (miles)",
+        yaxis_title="Fare Amount ($)"
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
 
 def render_raw_data(dataframe: pd.DataFrame) -> None:
     """Display raw data in expandable section."""
     with st.expander("View Raw Data"):
-        st.dataframe(dataframe)
+        st.dataframe(dataframe, use_container_width=True)
 
 
 def render_footer() -> None:

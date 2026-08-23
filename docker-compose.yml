@@ -1,5 +1,5 @@
 # docker-compose.yml
-# DESCRIPTION: Docker Compose configuration for BatchETL Pipeline with PostgreSQL, Airflow, and Streamlit services
+# Docker Compose configuration for BatchETL Pipeline with PostgreSQL, Airflow, Streamlit, and monitoring services
 
 services:
   postgres:
@@ -21,6 +21,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   airflow:
     image: apache/airflow:2.7.3
@@ -53,12 +54,19 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    restart: unless-stopped
 
   streamlit:
     build:
       context: ./dashboard
       dockerfile: Dockerfile
     container_name: batch-etl-streamlit
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: warehouse
     volumes:
       - ./data:/app/data
     ports:
@@ -69,13 +77,82 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8501"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: batch-etl-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - batch-etl-network
+    depends_on:
+      - postgres-exporter
+      - airflow
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
       interval: 30s
       timeout: 10s
       retries: 5
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: batch-etl-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-piechart-panel,grafana-worldmap-panel
+      GF_SERVER_ROUTER_LOGGING: "false"
+      GF_LOG_LEVEL: "error"
+      GF_DATABASE_LOCKING: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3000:3000"
+    networks:
+      - batch-etl-network
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: batch-etl-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://admin:admin@postgres:5432/warehouse?sslmode=disable"
+    volumes:
+      - ./postgres_exporter.yml:/postgres_exporter.yml:ro
+    ports:
+      - "9187:9187"
+    networks:
+      - batch-etl-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
 
 networks:
   batch-etl-network:
