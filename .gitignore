@@ -1,101 +1,175 @@
 # ============================================
-# Virtual Environment
-# ============================================
-venv/
-env/
-ENV/
-.env
-.venv/
-pyenv.cfg
-pip-wheel-metadata/
-share/python-wheels/
-
-# ============================================
-# Python Cache & Build
+# Byte-compiled / optimized / DLL files
 # ============================================
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+*.py[cod]
+*$py.class
 *.so
-*.egg
-*.egg-info/
-dist/
+*.pyd
+
+# ============================================
+# Distribution / packaging
+# ============================================
+.Python
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 *.whl
 *.manifest
 *.spec
 
 # ============================================
-# Airflow
+# Installer logs
 # ============================================
-airflow.db
-airflow.cfg
-webserver_config.py
-logs/
-plugins/
-*.pid
-airflow-webserver.pid
-airflow-scheduler.pid
-airflow-worker.pid
-airflow-webserver.log
-airflow-scheduler.log
-airflow-worker.log
-airflow.db-journal
-airflow.db-wal
-airflow.db-shm
-airflow.cfg.bak
-standalone_admin_credentials.txt
-unittests.cfg
-airflow/*.pyc
+pip-log.txt
+pip-delete-this-directory.txt
 
 # ============================================
-# Docker
+# Unit test / coverage reports
 # ============================================
-.docker/
-docker-compose.override.yml
-*.dockerignore
-postgres_data/
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
 
 # ============================================
-# PostgreSQL / Database
+# Translations
 # ============================================
-warehouse/*.duckdb
-warehouse/*.db
-warehouse/*.sqlite
-warehouse/*.sqlite3
-warehouse/*.log
-warehouse/*.wal
-warehouse/*.tmp
-warehouse/*.journal
-!warehouse/.gitkeep
+*.mo
+*.pot
 
 # ============================================
-# Data Files
+# Django / Flask
 # ============================================
-data/raw/*.csv
-!data/raw/.gitkeep
-data/staging/*.csv
-!data/staging/.gitkeep
-!data/staging/taxi_clean_sample.csv
-data/*.xlsx
-data/*.xls
-data/*.parquet
-data/*.json
-data/*.db
-data/*.sqlite
-!data/.gitkeep
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+instance/
+.webassets-cache
 
 # ============================================
-# IDE / Editor
+# Scrapy
+# ============================================
+.scrapy
+
+# ============================================
+# Sphinx documentation
+# ============================================
+docs/_build/
+
+# ============================================
+# PyBuilder
+# ============================================
+.pybuilder/
+target/
+
+# ============================================
+# Jupyter Notebook
+# ============================================
+.ipynb_checkpoints
+*.ipynb
+*.nbconvert.ipynb
+
+# ============================================
+# IPython
+# ============================================
+profile_default/
+ipython_config.py
+
+# ============================================
+# pyenv / pipenv / poetry / pdm
+# ============================================
+.python-version
+Pipfile.lock
+poetry.lock
+.pdm.toml
+__pypackages__/
+pyenv.cfg
+pip-wheel-metadata/
+
+# ============================================
+# Celery
+# ============================================
+celerybeat-schedule
+celerybeat.pid
+celeryd.pid
+
+# ============================================
+# SageMath
+# ============================================
+*.sage.py
+
+# ============================================
+# Environments
+# ============================================
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.env.local
+.env.*.local
+
+# ============================================
+# Spyder / Rope
+# ============================================
+.spyderproject
+.spyproject
+.ropeproject
+
+# ============================================
+# mkdocs
+# ============================================
+/site
+
+# ============================================
+# MyPy / Pyre / Pytype
+# ============================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# ============================================
+# Cython
+# ============================================
+cython_debug/
+
+# ============================================
+# IDEs / Editors
 # ============================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-.DS_Store
 *.iml
 *.ipr
 *.iws
@@ -112,137 +186,119 @@ data/*.sqlite
 # ============================================
 # OS Generated Files
 # ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+ehthumbs_vista.db
 Thumbs.db
 desktop.ini
+.directory
+
+# ============================================
+# Project Specific - Data Files
+# ============================================
+data/raw/
+data/staging/
+*.csv
+*.xlsx
+*.xls
+*.parquet
+*.json
+*.db
+*.sqlite
+*.sqlite3
+*.duckdb
+!data/raw/.gitkeep
+!data/staging/.gitkeep
+!data/staging/taxi_clean_sample.csv
+!data/.gitkeep
+
+# ============================================
+# Logs & Temp Files
+# ============================================
 *.log
 *.tmp
 *.temp
-.directory
-ehthumbs.db
-ehthumbs_vista.db
-
-# ============================================
-# Streamlit
-# ============================================
-.streamlit/secrets.toml
-
-# ============================================
-# Jupyter Notebook
-# ============================================
-.ipynb_checkpoints/
-*.ipynb
-*.nbconvert.ipynb
-
-# ============================================
-# Testing
-# ============================================
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-*.cover
-.mypy_cache/
-.ruff_cache/
-test-results/
-test-reports/
-junit.xml
-coverage.xml
-
-# ============================================
-# Backup & Temp Files
-# ============================================
 *.bak
-*.tmp
-*.temp
 *.backup
 *.old
 *.orig
 *.rej
 *.patch
+tmp/
+temp/
 
 # ============================================
-# Local Development
+# Docker
 # ============================================
-local.env
-.env.local
-.env.*.local
-*.local
-credentials.json
-.credentials.json
+*.pid
+*.lock
+*.socket
+*.sock
+.docker/
+docker-compose.override.yml
+*.dockerignore
+postgres_data/
+pgdata/
+.docker-data
+/data_volume
 
 # ============================================
-# Security
+# Airflow
 # ============================================
-*.key
-*.pem
-*.crt
-*.csr
-secrets/
-*.secret
-*.secrets
+logs/
+airflow.db
+airflow.cfg
+webserver_config.py
+plugins/
+airflow-webserver.pid
+airflow-scheduler.pid
+airflow-worker.pid
+airflow-webserver.log
+airflow-scheduler.log
+airflow-worker.log
+airflow.db-journal
+airflow.db-wal
+airflow.db-shm
+airflow.cfg.bak
+standalone_admin_credentials.txt
+unittests.cfg
+airflow/*.pyc
+dags/__pycache__/
+scripts/__pycache__/
+dashboard/__pycache__/
 
 # ============================================
-# Archive Files
+# PostgreSQL
 # ============================================
-*.zip
-*.tar.gz
-*.tgz
-*.rar
-*.7z
-*.bz2
-*.xz
-*.gz
+warehouse/*.duckdb
+warehouse/*.db
+warehouse/*.sqlite
+warehouse/*.sqlite3
+warehouse/*.log
+warehouse/*.wal
+warehouse/*.tmp
+warehouse/*.journal
+!warehouse/.gitkeep
 
 # ============================================
-# Python Profiling
+# Prometheus / Grafana
 # ============================================
-*.prof
-*.pyprof
+prometheus_data/
+grafana_data/
+monitoring/exporters/__pycache__/
 
 # ============================================
-# Documentation Build
+# Streamlit
 # ============================================
-docs/_build/
-docs/_static/
-docs/_templates/
-docs/build/
-docs/source/
-*.api
+.streamlit/secrets.toml
+.streamlit/
 
 # ============================================
-# Version Control
-# ============================================
-.python-version
-Pipfile.lock
-poetry.lock
-pyproject.toml
-Pipfile
-poetry.toml
-
-# ============================================
-# MyPy / Pyre / Pytype
-# ============================================
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-.pytype/
-
-# ============================================
-# Celery
-# ============================================
-celerybeat-schedule
-celerybeat.pid
-celeryd.pid
-
-# ============================================
-# Flask
-# ============================================
-instance/
-.webassets-cache
-
-# ============================================
-# Node
+# Node / Frontend
 # ============================================
 node_modules/
 npm-debug.log*
@@ -254,10 +310,6 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 .pnpm
-
-# ============================================
-# Frontend Build
-# ============================================
 dist/
 build/
 out/
@@ -276,7 +328,150 @@ out/
 *.iso
 
 # ============================================
-# Screenshots - TRACK ALL
+# Archive Files
+# ============================================
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+*.bz2
+*.xz
+*.gz
+
+# ============================================
+# Security / Credentials
+# ============================================
+*.key
+*.pem
+*.crt
+*.csr
+secrets/
+*.secret
+*.secrets
+credentials.json
+.credentials.json
+*.password
+*.secret.yaml
+*.secret.yml
+*.env.production
+*.env.staging
+local.env
+
+# ============================================
+# Version Control
+# ============================================
+.git/
+.gitignore
+.gitattributes
+.gitmodules
+.python-version
+
+# ============================================
+# Python Profiling
+# ============================================
+*.prof
+*.pyprof
+
+# ============================================
+# Documentation Build
+# ============================================
+docs/_build/
+docs/_static/
+docs/_templates/
+docs/build/
+docs/source/
+*.api
+
+# ============================================
+# Web Server
+# ============================================
+.htaccess
+.htpasswd
+
+# ============================================
+# Linux/WSL Specific
+# ============================================
+airflow-init.sh
+
+# ============================================
+# Test Reports
+# ============================================
+test-reports/
+pytest_report.html
+test_report_*.json
+*.report.json
+test-results/
+junit.xml
+
+# ============================================
+# Phase Verification Reports
+# ============================================
+phase*_verification.json
+phase*_verification_report.txt
+verification_report.txt
+run_all_checks_report.txt
+*.json
+*_report.txt
+
+# ============================================
+# Phase Verification Scripts
+# ============================================
+verify-phase-*.py
+verify-*.py
+run_all_verifications.py
+run_all_checks.py
+
+# ============================================
+# Troubleshooting Scripts
+# ============================================
+troubleshoot*.py
+troubleshoot_*.py
+troubleshooting/
+troubleshooting/*
+
+# ============================================
+# Utility Scripts
+# ============================================
+create_sample.py
+setup_project.py
+data_inspection.py
+structure.py
+airflow-reset-password.ps1
+postgres_exporter.yml
+
+# ============================================
+# Credentials Checker
+# ============================================
+check_all_logins.txt
+check_all_logins.py
+
+# ============================================
+# Archive Folder
+# ============================================
+archive/
+archive/*
+
+# ============================================
+# Docs Folder (Entire Folder)
+# ============================================
+docs/
+docs/*
+
+# ============================================
+# Batchetl Streamlit (Optional - Can be hidden)
+# ============================================
+# batchetl-streamlit/
+# batchetl-streamlit/*
+
+# ============================================
+# Exceptions - Track Specific Files
+# ============================================
+!pipeline_test.py
+!test_all.py
+
+# ============================================
+# Screenshots - Track ALL Images
 # ============================================
 !screenshots/
 !screenshots/*.png
@@ -286,103 +481,17 @@ out/
 !screenshots/*.JPG
 
 # ============================================
-# Airflow DAGs Cache
+# Terraform
 # ============================================
-dags/__pycache__/
-scripts/__pycache__/
-dashboard/__pycache__/
-batchetl-streamlit/__pycache__/
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform.lock.hcl
+terraform/environments/*/.terraform/
+terraform/environments/*/terraform.tfstate*
+.terraform/
 
 # ============================================
-# Git
+# AWS
 # ============================================
-.git/
-.gitignore
-.gitattributes
-.gitmodules
-
-# ============================================
-# Server / Web Server
-# ============================================
-*.pid
-*.lock
-*.socket
-*.sock
-.htaccess
-.htpasswd
-
-# ============================================
-# Project Specific
-# ============================================
-/venv
-/__pycache__
-/.pytest_cache
-/.mypy_cache
-/.ruff_cache
-/data_volume
-/postgres_data
-/.docker-data
-*.secret.yaml
-*.secret.yml
-*.env.production
-*.env.staging
-
-# ============================================
-# Phase Verification 
-# ============================================
-phase*_verification.json
-phase*_verification_report.txt
-run_all_verifications.py
-verify-phase-*.py
-
-# ============================================
-# Troubleshooting 
-# ============================================
-troubleshoot*.py
-run_all_checks.py
-troubleshoot_config.py
-troubleshoot_utils.py
-
-# ============================================
-# Data Inspection & Structure 
-# ============================================
-data_inspection.py
-structure.py
-
-# ============================================
-# Linux/WSL Specific 
-# ============================================
-airflow-init.sh
-
-# ============================================
-# Docker Override 
-# ============================================
-docker-compose.override.yml
-
-# ============================================
-# Test Reports 
-# ============================================
-test_report_*.json
-*.report.json
-
-# ============================================
-# Large Data Files 
-# ============================================
-*.parquet
-*.duckdb
-*.db
-*.sqlite
-*.sqlite3
-
-# ============================================
-# Test Scripts (Hide all except pipeline_test.py and test_all.py)
-# ============================================
-run_tests.py
-verify.py
-health_check.py
-test_*.py
-*_test.py
-
-# Override: Track pipeline_test.py and test_all.py
-!pipeline_test.py
-!test_all.py
+.aws/
