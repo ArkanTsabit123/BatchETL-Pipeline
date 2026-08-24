@@ -216,6 +216,14 @@ python run_all_verifications.py
 ---
 
 ## Monitoring & Observability
+### Grafana & Prometheus Screenshots
+
+| Dashboard | Description |
+|-----------|-------------|
+| ![Pipeline Overview](screenshots/20-grafana-pipeline.png) | **Pipeline Overview**: Total rows in fact_trips (2.87M rows) |
+| ![Database Performance](screenshots/21-grafana-database.png) | **Database Performance**: Database size (670MB) |
+| ![Data Quality](screenshots/22-grafana-data-quality.png) | **Data Quality**: Data quality metrics |
+| ![Prometheus Targets](screenshots/23-prometheus-targets.png) | **Prometheus Targets**: All targets UP |
 
 ### Grafana Dashboards
 
