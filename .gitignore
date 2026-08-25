@@ -213,8 +213,13 @@ data/staging/
 *.duckdb
 !data/raw/.gitkeep
 !data/staging/.gitkeep
-!data/staging/taxi_clean_sample.csv
 !data/.gitkeep
+
+# ============================================
+# EXCEPTION: CSV Files for Streamlit Cloud
+# ============================================
+!batchetl-streamlit/data/
+!batchetl-streamlit/data/*.csv
 
 # ============================================
 # Logs & Temp Files
@@ -495,3 +500,8 @@ terraform/environments/*/terraform.tfstate*
 # AWS
 # ============================================
 .aws/
+
+!batchetl-streamlit/data/
+!batchetl-streamlit/data/*.csv
+!data/raw/
+!data/staging/

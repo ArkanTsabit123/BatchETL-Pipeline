@@ -2,14 +2,15 @@
 """
 BatchETL Pipeline - Standalone Dashboard for Streamlit Cloud
 
-Reads CSV directly (no database connection).
+Reads CSV directly from GitHub raw URL (no database connection).
 """
 
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
-import os
+import requests
+from io import StringIO
 
 # Page configuration
 st.set_page_config(
@@ -19,18 +20,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Load data
+# Load data from GitHub raw URL
 @st.cache_data(ttl=3600)
 def load_data():
-    """Load sample data from CSV."""
-    data_path = 'data/staging/taxi_clean_sample.csv'
-
-    if not os.path.exists(data_path):
-        st.error(f"Data file not found: {data_path}")
+    """Load sample data from GitHub raw URL."""
+    url = "https://raw.githubusercontent.com/ArkanTsabit123/BatchETL-Pipeline/main/batchetl-streamlit/data/taxi_clean_sample.csv"
+    
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        df = pd.read_csv(StringIO(response.text))
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
         return pd.DataFrame()
-
-    df = pd.read_csv(data_path)
-    return df
 
 df = load_data()
 
